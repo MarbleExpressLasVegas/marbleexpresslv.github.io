@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Container Tracker -- Marble Express</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Arial,sans-serif}
+body{background:#f0f2f5;min-height:100vh;padding:20px;color:#333}
+.top-bar{background:#1B3A6B;color:white;padding:14px 20px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.top-bar h1{font-size:16px;font-weight:600}
+.top-bar .updated{font-size:11px;opacity:0.7;margin-top:3px}
+.live-badge{background:#1d9e75;font-size:11px;padding:4px 10px;border-radius:20px;font-weight:500}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:700px){.metrics{grid-template-columns:repeat(2,1fr)}}
+.card{background:white;border-radius:10px;padding:16px;border-left:4px solid #ddd;cursor:pointer;transition:transform 0.1s}
+.card:hover{transform:translateY(-2px)}
+.card.green{border-color:#1d9e75}.card.blue{border-color:#378add}.card.amber{border-color:#ef9f27}.card.red{border-color:#e24b4a}
+.card-label{font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em}
+.card-num{font-size:28px;font-weight:700;color:#1B3A6B}
+.card-val{font-size:12px;font-weight:600;margin-top:4px}
+.card.green .card-val{color:#1d9e75}.card.blue .card-val{color:#378add}.card.amber .card-val{color:#854f0b}.card.red .card-val{color:#e24b4a}
+.card-sub{font-size:11px;color:#aaa;margin-top:3px}
+.tabs{display:flex;gap:0;margin-bottom:16px;background:white;border-radius:10px;padding:4px;width:fit-content}
+.tab{padding:8px 20px;border-radius:8px;font-size:13px;cursor:pointer;color:#888;transition:all 0.15s;border:none;background:none}
+.tab.active{background:#1B3A6B;color:white;font-weight:500}
+.main{display:grid;grid-template-columns:1fr 260px;gap:16px}
+@media(max-width:900px){.main{grid-template-columns:1fr}}
+.panel{background:white;border-radius:10px;padding:16px}
+.panel-title{font-size:13px;font-weight:600;color:#1B3A6B;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.fbtn{font-size:12px;padding:5px 14px;border-radius:20px;border:1px solid #ddd;background:white;color:#666;cursor:pointer;transition:all 0.15s}
+.fbtn:hover{border-color:#1B3A6B;color:#1B3A6B}
+.fbtn.active{background:#1B3A6B;color:white;border-color:#1B3A6B}
+.search{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:12px;margin-bottom:12px;outline:none}
+.search:focus{border-color:#1B3A6B}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 10px;font-size:11px;color:#888;border-bottom:1px solid #f0f0f0;white-space:nowrap;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;cursor:pointer;user-select:none}
+th:hover{color:#1B3A6B}
+td{padding:9px 10px;border-bottom:1px solid #f8f8f8;color:#333;vertical-align:middle}
+tr:hover td{background:#fafbff}
+.pill{display:inline-block;font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;white-space:nowrap}
+.p-received{background:#e1f5ee;color:#0f6e56}
+.p-port{background:#faeeda;color:#854f0b}
+.p-water{background:#fcebeb;color:#a32d2d}
+.p-yard{background:#e6f1fb;color:#185fa5}
+.p-pending{background:#f5f5f5;color:#888}
+.mono{font-family:monospace;font-size:11px;color:#555}
+.val{font-weight:600;color:#1B3A6B}
+.sidebar-title{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px}
+.donut-wrap{display:flex;justify-content:center;margin-bottom:12px;position:relative}
+.donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+.donut-big{font-size:22px;font-weight:700;color:#1B3A6B}
+.donut-small{font-size:10px;color:#aaa}
+.legend-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:#555}
+.ldot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.lval{margin-left:auto;font-weight:600;color:#1B3A6B}
+.divider{height:1px;background:#f0f0f0;margin:14px 0}
+.eta-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f8f8f8;font-size:12px}
+.eta-name{color:#555;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eta-date{color:#1B3A6B;font-weight:600;font-size:11px}
+.total-bar{background:#f8f9ff;border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+.total-label{font-size:11px;color:#888}
+.total-val{font-size:16px;font-weight:700;color:#1B3A6B}
+.no-results{text-align:center;padding:30px;color:#aaa;font-size:13px}
+.view-hidden{display:none}
+.sort-arrow{font-size:9px;margin-left:3px;opacity:0.5}
+.alert-banner{background:#B71C1C;color:white;border-radius:10px;padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:500}
+.alert-banner.hidden{display:none}
+.alert-icon{font-size:20px;flex-shrink:0}
+.alert-list{margin-top:6px;font-size:12px;opacity:0.9;line-height:1.8}
+.f-overdue{background:#FFCDD2;color:#B71C1C;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700}
+.f-soon{background:#FFF9C4;color:#F57F17;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
+.f-ontrack{background:#E8F5E9;color:#2E7D32;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500}
+.f-missing{background:#F5F5F5;color:#757575;font-size:10px;padding:2px 7px;border-radius:10px}
+.f-received{background:#C8E6C9;color:#1B5E20;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500}
+.f-pickup{background:#E3F2FD;color:#0D47A1;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700}
+.f-atport{background:#FFF3E0;color:#E65100;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
+.t-intl{background:#E3F2FD;color:#0D47A1;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500}
+.t-dom{background:#E8F5E9;color:#1B5E20;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500}
+.tab-bar2{display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #f0f0f0}
+.tab2{padding:8px 18px;font-size:13px;cursor:pointer;color:#888;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-2px}
+.tab2.active{color:#1B3A6B;border-bottom-color:#1B3A6B;font-weight:600}
+.milestone-row{background:#f8f9ff;border-bottom:1px solid #eef0f8;display:none}
+.milestone-row.open{display:table-row}
+.milestone-wrap{padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ms{display:flex;flex-direction:column;align-items:center;min-width:90px}
+.ms-dot{width:12px;height:12px;border-radius:50%;margin-bottom:4px;flex-shrink:0}
+.ms-done{background:#1d9e75}.ms-active{background:#378add;box-shadow:0 0 0 3px #d0e8fb}
+.ms-pending{background:#ddd}
+.ms-label{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:0.04em;text-align:center}
+.ms-date{font-size:10px;font-weight:600;color:#1B3A6B;text-align:center;margin-top:2px}
+.ms-connector{flex:1;height:2px;background:#eee;min-width:12px;margin-bottom:16px}
+.ms-connector.done{background:#1d9e75}
+.expand-btn{font-size:10px;color:#1B3A6B;cursor:pointer;padding:2px 6px;border:0.5px solid #ddd;border-radius:4px;background:white;white-space:nowrap}
+.expand-btn:hover{background:#f0f4ff}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div>
+    <h1>Container Status Tracker -- Marble Express</h1>
+    <div class="updated">Last updated: May 15, 2026  08:30 AM</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span class="live-badge">? Live via Terminal49</span>
+    <span style="font-size:11px;opacity:0.7">29 POs &nbsp;.&nbsp; $756,842 total value</span>
+  </div>
+</div>
+
+<div class="alert-banner" id="alert-banner">
+  <div class="alert-icon">[!]?</div>
+  <div>
+    <div>3 containers past ETA -- not yet received</div>
+    <div class="alert-list" id="alert-list"></div>
+  </div>
+</div>
+
+<div class="tab-bar2">
+  <button class="tab2 active" onclick="switchType('all',this)">All Shipments</button>
+  <button class="tab2" onclick="switchType('International',this)">International</button>
+  <button class="tab2" onclick="switchType('Domestic',this)">Domestic</button>
+</div>
+
+<div class="metrics">
+  <div class="card green" onclick="filterByStatus('Received')">
+    <div class="card-label">Received</div>
+    <div class="card-num" id="m-received">0</div>
+    <div class="card-val" id="m-received-val"></div>
+    <div class="card-sub">Click to filter</div>
+  </div>
+  <div class="card blue" onclick="filterByStatus('At Yard')">
+    <div class="card-label">At Yard</div>
+    <div class="card-num" id="m-yard">0</div>
+    <div class="card-val" id="m-yard-val"></div>
+    <div class="card-sub">Ready for pickup</div>
+  </div>
+  <div class="card amber" onclick="filterByStatus('At Port / On Vessel')">
+    <div class="card-label">At Port</div>
+    <div class="card-num" id="m-port">0</div>
+    <div class="card-val" id="m-port-val"></div>
+    <div class="card-sub">Click to filter</div>
+  </div>
+  <div class="card red" onclick="filterByStatus('On the Water')">
+    <div class="card-label">On the Water</div>
+    <div class="card-num" id="m-water">0</div>
+    <div class="card-val" id="m-water-val"></div>
+    <div class="card-sub">Click to filter</div>
+  </div>
+</div>
+
+<div style="margin-bottom:16px">
+  <div class="tabs">
+    <button class="tab active" onclick="switchView('containers',this)">Shipments</button>
+    <button class="tab" onclick="switchView('materials',this)">Materials</button>
+    <button class="tab" onclick="switchView('postatus',this)">PO Status</button>
+  </div>
+</div>
+
+<div id="view-containers">
+  <div class="main">
+    <div class="panel">
+      <div class="panel-title">
+        <span>Shipment Overview</span>
+        <span id="row-count" style="font-size:11px;color:#aaa;font-weight:400"></span>
+      </div>
+      <input class="search" id="search-containers" type="text" placeholder="Search supplier, shipment, PO..." oninput="renderContainers()">
+      <div class="filters">
+        <button class="fbtn active" onclick="setFilter('all',this)">All</button>
+        <button class="fbtn" onclick="setFilter('Received',this)">Received</button>
+        <button class="fbtn" onclick="setFilter('At Yard',this)">At Yard</button>
+        <button class="fbtn" onclick="setFilter('At Port / On Vessel',this)">At Port</button>
+        <button class="fbtn" onclick="setFilter('On the Water',this)">On the Water</button>
+        <button class="fbtn" onclick="setFilter('pending',this)">Pending</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortBy('flag')">Flag</th>
+              <th>Type</th>
+              <th onclick="sortBy('po')">PO#</th>
+              <th onclick="sortBy('supplier')">Supplier</th>
+              <th>Container / Order</th>
+              <th onclick="sortBy('status')">Status</th>
+              <th onclick="sortBy('eta')">ETA</th>
+              <th>LFD</th>
+              <th>Terminal</th>
+              <th onclick="sortBy('slabs')" style="text-align:center">Slabs</th>
+              <th onclick="sortBy('value')">PO Value</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-containers"></tbody>
+        </table>
+      </div>
+      <div class="total-bar">
+        <span class="total-label">Filtered Portfolio Value</span>
+        <span class="total-val" id="filtered-total">$0.00</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px">
+        <div class="sidebar-title">Status Breakdown</div>
+        <div class="donut-wrap">
+          <canvas id="donut" width="150" height="150"></canvas>
+          <div class="donut-center">
+            <div class="donut-big" id="donut-total">0</div>
+            <div class="donut-small">shipments</div>
+          </div>
+        </div>
+        <div id="legend"></div>
+      </div>
+      <div class="panel">
+        <div class="sidebar-title">Upcoming ETAs</div>
+        <div id="etas"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="view-materials" class="view-hidden">
+  <div class="panel">
+    <div class="panel-title">
+      <span>Materials Detail</span>
+      <span id="mat-count" style="font-size:11px;color:#aaa;font-weight:400"></span>
+    </div>
+    <input class="search" id="search-materials" type="text" placeholder="Search material, SKU, supplier, PO..." oninput="renderMaterials()">
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>PO#</th>
+            <th>Supplier</th>
+            <th>Container / Order</th>
+            <th onclick="sortMat('eta')">ETA</th>
+            <th>Status</th>
+            <th>Material</th>
+            <th>SKU</th>
+            <th>Category</th>
+            <th style="text-align:center">Slabs</th>
+            <th style="text-align:center">Qty</th>
+            <th>Units</th>
+            <th>Unit Price</th>
+            <th>Line Total</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-materials"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="view-postatus" class="view-hidden">
+  <div class="panel">
+    <div class="panel-title">
+      <span>PO Status Tracker</span>
+      <span id="postatus-count" style="font-size:11px;color:#aaa;font-weight:400"></span>
+    </div>
+    <!-- Filter tabs: All / Domestic / International -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+      <div class="tab-bar2" style="margin-bottom:0">
+        <button class="tab2 active" onclick="switchPSType('all',this)">All</button>
+        <button class="tab2" onclick="switchPSType('Domestic',this)">Domestic</button>
+        <button class="tab2" onclick="switchPSType('Distributor',this)">Distributor</button>
+        <button class="tab2" onclick="switchPSType('International',this)">International</button>
+      </div>
+      <input class="search" id="search-postatus" type="text" placeholder="Search supplier, PO, status, material..." oninput="renderPOStatus()" style="flex:1;min-width:200px;margin-bottom:0">
+    </div>
+    <!-- Status group filter pills -->
+    <div id="ps-status-filters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
+    <!-- Summary cards -->
+    <div id="ps-summary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+    <!-- Table -->
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortPS('po')">PO#</th>
+            <th onclick="sortPS('supplier')">Supplier</th>
+            <th>Type</th>
+            <th>Container</th>
+            <th onclick="sortPS('status')">Status</th>
+            <th onclick="sortPS('eta')">ETA</th>
+            <th>Material</th>
+            <th>Category</th>
+            <th style="text-align:center">Slabs</th>
+            <th onclick="sortPS('cost')">Cost</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-postatus"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const containers = [{"po": "16880", "supplier": "EMPIRESTONE-PHU SON JSC", "cntr": "", "status": "", "eta": "", "lfd": "", "terminal": "", "slabs": 0, "value": 28723.2, "materials": "CRYSTAL ICE POLISHED N ME QUARTZ 2CM JUMBO 126X63", "flag": "MISSING", "stype": "International", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "17417", "supplier": "VIETNAM QUARTZ JSC.", "cntr": "", "status": "", "eta": "", "lfd": "", "terminal": "", "slabs": 0, "value": 22456.32, "materials": "WHITE HARV POLISHED ME QUARTZ 2CM JUMBO 126X63", "flag": "MISSING", "stype": "International", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "20396", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "", "status": "", "eta": "", "lfd": "", "terminal": "", "slabs": 10, "value": 13135.84, "materials": "FANTASY BROWN LEATHER DOLOMITE MARBLE 2CM | FANTASY BROWN POLISHED DOLOMITE MARBLE 2CM", "flag": "MISSING", "stype": "International", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "20703", "supplier": "MAMERI EXPORT LTDA", "cntr": "CXDU1171760", "status": "Received", "eta": "2026-05-01", "lfd": "", "terminal": "", "slabs": 10, "value": 56946.21, "materials": "NEGRESCO LEATHER QUARTZITE 2CM | TAJ MAHAL LEATHER QUARTZITE 2CM | ROSE DE FRANCE POLISHED QUARTZITE 2CM | TAJ MAHAL POLISHED QUARTZITE 2CM", "flag": "RECEIVED", "stype": "International", "pol_departed": "2026-03-04", "pod_eta": "2026-05-01", "pod_arrived": "2026-05-01", "pod_discharged": "2026-05-02", "available_date": "", "pickup_appt": "", "picked_up": "2026-05-08", "vessel": "MSC ATHOS", "origin_port": "Vitoria", "dest_port": "Long Beach"}, {"po": "20706", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "MSDU2766700", "status": "Received", "eta": "2026-05-08", "lfd": "", "terminal": "", "slabs": 11, "value": 13026.51, "materials": "FANTASY BROWN LEATHER DOLOMITE MARBLE 2CM | FANTASY BROWN POLISHED DOLOMITE MARBLE 2CM", "flag": "RECEIVED", "stype": "International", "pol_departed": "2026-03-25", "pod_eta": "2026-05-08", "pod_arrived": "2026-05-08", "pod_discharged": "2026-05-11", "available_date": "", "pickup_appt": "", "picked_up": "2026-05-13", "vessel": "MSC LORENZA", "origin_port": "Mundra", "dest_port": "Long Beach"}, {"po": "20883", "supplier": "MAGBAN", "cntr": "", "status": "", "eta": "", "lfd": "", "terminal": "", "slabs": 10, "value": 34028.78, "materials": "METALICUS LEATHER GRANITE 2CM | BLACK PHANTUS DEEP LEATHER QUARTZITE 2CM | WHITE CULINA LEATHER QUARTZITE 2CM | AMAZONITE POLISHED QUARTZITE 2CM | MATARAZZO HONED MARBLE 2CM | TITANIUM POLISHED GRANITE 2CM", "flag": "MISSING", "stype": "International", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "20889", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU6705351", "status": "On the Water", "eta": "2026-05-19", "lfd": "", "terminal": "", "slabs": 12, "value": 49290.56, "materials": "FUSION POLISHED QUARTZITE 2CM | NAICA BLUE LEATHER QUARTZITE 2CM | MONT BLANC LEATHER QUARTZITE 2CM | TAJ MAHAL LEATHER QUARTZITE 2CM | FUSION LEATHER QUARTZITE 2CM | NAICA LEATHER QUARTZITE 2CM | EMERALD GREEN POLISHED QUARTZITE 2CM", "flag": "DUE SOON", "stype": "International", "pol_departed": "2026-04-03", "pod_eta": "2026-05-19", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "MSC GAYANE", "origin_port": "Vitoria", "dest_port": "Los Angeles"}, {"po": "20890", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU5131177", "status": "On the Water", "eta": "2026-05-29", "lfd": "", "terminal": "", "slabs": 9, "value": 65553.82, "materials": "MONT BLANC LEATHER QUARTZITE 2CM | TAJ MAHAL LEATHER QUARTZITE 2CM", "flag": "ON TRACK", "stype": "International", "pol_departed": "2026-04-25", "pod_eta": "2026-05-29", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "MSC FIRENZE", "origin_port": "Vitoria", "dest_port": "Long Beach"}, {"po": "20902", "supplier": "Zucchi Granite", "cntr": "MEDU6751300", "status": "On the Water", "eta": "2026-05-19", "lfd": "", "terminal": "", "slabs": 10, "value": 42095.0, "materials": "BELLAGIO POLISHED QUARTZITE 2CM | ANTHRA BLACK LEATHER GRANITE 2CM", "flag": "DUE SOON", "stype": "International", "pol_departed": "2026-04-04", "pod_eta": "2026-05-19", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "MSC GAYANE", "origin_port": "Vitoria", "dest_port": "Los Angeles"}, {"po": "20917", "supplier": "MAGBAN", "cntr": "MEDU5466020", "status": "On the Water", "eta": "2026-05-19", "lfd": "", "terminal": "", "slabs": 16, "value": 34759.99, "materials": "PLATINUS LEATHER QUARTZITE 2CM | NEGRESCO LEATHER GRANITE 2CM | BLACK PHANTUS DEEP LEATHER GRANITE 2CM | TITANIUM POLISHED GRANITE 2CM", "flag": "DUE SOON", "stype": "International", "pol_departed": "2026-04-10", "pod_eta": "2026-05-19", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "MSC GAYANE", "origin_port": "Vitoria", "dest_port": "Los Angeles"}, {"po": "20995", "supplier": "MINERAL STONE EXPORTAO LTDA", "cntr": "TCLU2695440", "status": "On the Water", "eta": "2026-05-29", "lfd": "", "terminal": "", "slabs": 11, "value": 69248.74, "materials": "PERLA VENATA POLISHED QUARTZITE 2CM | IJEN CRYSTAL POLISHED QUARTZITE 2CM | IJEN BLUE LEATHER QUARTZITE 2CM", "flag": "ON TRACK", "stype": "International", "pol_departed": "2026-04-16", "pod_eta": "2026-05-29", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "MSC FIRENZE", "origin_port": "Vitoria", "dest_port": "Long Beach"}, {"po": "21124", "supplier": "MILANEZI GRANITOS S/A", "cntr": "MSMU2548788", "status": "On the Water", "eta": "2026-06-16", "lfd": "", "terminal": "", "slabs": 10, "value": 113707.55, "materials": "CRYSTAL FIRE POLISHED QUARTZITE 2CM | CRYSTAL WHITE GOLD PRECIOUS STONE MOSAIC MIX SHAPE POLISHED QUARTZITE 2CM | CRYSTAL WHITE PRECIOUS STONE MOSAIC POLISHED QUARTZITE 2CM | CRYSTAL WHITE PRECIOUS STONE MOSAIC DIAMONDS POLISHED QUARTZITE 2CM | CRYSTAL WHITE POLISHED QUARTZITE 2CM", "flag": "ON TRACK", "stype": "International", "pol_departed": "2026-05-01", "pod_eta": "2026-06-16", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "CAPE KORTIA", "origin_port": "Vitoria", "dest_port": "Long Beach"}, {"po": "21228", "supplier": "Cosentino N.A. Inc", "cntr": "", "status": "", "eta": "2026-05-19", "lfd": "", "terminal": "", "slabs": 14, "value": 54951.13, "materials": "VENA ORO POLISHED QUARTZITE 2CM | DAKAR 2.0 EX PUL | ORINOCO 2.0 EX PUL | VANCOUVER EX LEATHERED QUARTZITE 2CM", "flag": "DUE SOON", "stype": "Unknown", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21236", "supplier": "Total Home Distributors (THD)", "cntr": "", "status": "", "eta": "2026-05-18", "lfd": "", "terminal": "", "slabs": 0, "value": 18881.17, "materials": "LUGANO MARFIL POLISHED LFT PORCELAIN 48X48", "flag": "DUE SOON", "stype": "Domestic", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21239", "supplier": "Stonex", "cntr": "", "status": "", "eta": "2026-05-18", "lfd": "", "terminal": "", "slabs": 0, "value": 10640.0, "materials": "BLUE STONE VENEER MARBLE SPLITFACE LEDGER 8X18", "flag": "DUE SOON", "stype": "Domestic", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21240", "supplier": "EPC-European Porcelain & Ceramics", "cntr": "", "status": "", "eta": "2026-05-22", "lfd": "", "terminal": "", "slabs": 0, "value": 488.22, "materials": "SAHN WHITE MATTE CERAMIC 4X4", "flag": "DUE SOON", "stype": "Domestic", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21245", "supplier": "LX HAUSYS American, Inc.", "cntr": "", "status": "", "eta": "2026-05-15", "lfd": "", "terminal": "", "slabs": 0, "value": 991.15, "materials": "EVEREST LX HAUSYS POLISHED QUARTZ 2CM JUMBO ll 130X63*", "flag": "OVERDUE 1d", "stype": "Domestic", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21248", "supplier": "Cosentino N.A. Inc", "cntr": "", "status": "", "eta": "", "lfd": "", "terminal": "", "slabs": 0, "value": 17566.51, "materials": "AWAKE KC POLISHED DEKTON 2CM JUMBO", "flag": "MISSING", "stype": "Unknown", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21249", "supplier": "Pan American Ceramics by Merola Tile LLC", "cntr": "", "status": "", "eta": "2026-05-22", "lfd": "", "terminal": "", "slabs": 0, "value": 403.23, "materials": "SYMMETRY SUNRISE LINEN MATTE PORCELAIN 12X24", "flag": "DUE SOON", "stype": "Domestic", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21252", "supplier": "Caesarstone Quartz Surfaces", "cntr": "", "status": "", "eta": "2026-05-13", "lfd": "", "terminal": "", "slabs": 0, "value": 11510.1, "materials": "VANILLA NOIR 5100 POLISHED CAESARSTONE 2CM JUMBO 130X64.6", "flag": "OVERDUE 3d", "stype": "Unknown", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21253", "supplier": "Quality Marble & Granite", "cntr": "", "status": "", "eta": "2026-05-22", "lfd": "", "terminal": "", "slabs": 0, "value": 3528.0, "materials": "REVOLUX CALACATTA MACCHIA VECCHIA LUX POLISHED MINERAL SLAB B 126X63 2CM (RIGHT) | REVOLUX CALACATTA MACCHIA VECCHIA LUX POLISHED MINERAL SLAB A 126X63 2CM (LEFT)", "flag": "DUE SOON", "stype": "Unknown", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21259", "supplier": "Stonex", "cntr": "", "status": "", "eta": "2026-05-18", "lfd": "", "terminal": "", "slabs": 0, "value": 83.6, "materials": "CRYSTAL WHITE MARBLE SPLIT FACE 8X18", "flag": "DUE SOON", "stype": "Domestic", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21260", "supplier": "Glazzio Tiles", "cntr": "", "status": "", "eta": "", "lfd": "", "terminal": "", "slabs": 0, "value": 859.8, "materials": "FROST PLAZA TUXEDO GALA GLASS MOSAIC", "flag": "MISSING", "stype": "Domestic", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21261", "supplier": "EMIL AMERICA", "cntr": "", "status": "", "eta": "2026-05-14", "lfd": "", "terminal": "", "slabs": 0, "value": 250.9, "materials": "AURELIA STONE DECOR VERTICAL WHITE NATURAL 12X24", "flag": "OVERDUE 2d", "stype": "Domestic", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21262", "supplier": "Happy Floors", "cntr": "", "status": "", "eta": "2026-05-18", "lfd": "", "terminal": "", "slabs": 0, "value": 2896.95, "materials": "NEXTONE TAUPE NATURAL (RECTIFIED EDGE) TILE 24X48", "flag": "DUE SOON", "stype": "Domestic", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "21274", "supplier": "Roman Marble INC", "cntr": "", "status": "", "eta": "2026-05-18", "lfd": "", "terminal": "", "slabs": 1, "value": 2125.15, "materials": "TUNDRA GREY HONED MARBLE 2CM 138X77", "flag": "DUE SOON", "stype": "Domestic", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "5720", "supplier": "GMA Project Group/Salvini", "cntr": "", "status": "", "eta": "", "lfd": "", "terminal": "", "slabs": 0, "value": 31169.6, "materials": "CAROL GREY POLISHED ME QUARTZ 3CM JUMBO 126X63 | SMOKE POLISHED ME QUARTZ 3CM JUMBO 126X63", "flag": "MISSING", "stype": "Unknown", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "5721", "supplier": "GMA Project Group/Salvini", "cntr": "", "status": "", "eta": "", "lfd": "", "terminal": "", "slabs": 0, "value": 30823.45, "materials": "STORM POLISHED ME QUARTZ 3CM JUMBO 126X63 | SMOKE POLISHED ME QUARTZ 3CM JUMBO 126X63", "flag": "MISSING", "stype": "Unknown", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}, {"po": "5990", "supplier": "GMA Project Group/Salvini", "cntr": "", "status": "", "eta": "", "lfd": "", "terminal": "", "slabs": 0, "value": 26700.8, "materials": "WHITE HARV POLISHED ME QUARTZ 3CM JUMBO 126X63", "flag": "MISSING", "stype": "Unknown", "pol_departed": "", "pod_eta": "", "pod_arrived": "", "pod_discharged": "", "available_date": "", "pickup_appt": "", "picked_up": "", "vessel": "", "origin_port": "", "dest_port": ""}];
+const materials  = [{"po": "21240", "supplier": "EPC-European Porcelain & Ceramics", "cntr": "", "eta": "2026-05-22", "status": "", "name": "SAHN WHITE MATTE CERAMIC 4X4", "sku": "ME02-SWMC44", "category": "Ceramic", "type": "TILE", "slabs": 0, "qty": 96.87, "units": "SF", "price": 5.04, "total": 488.22, "stype": "Domestic"}, {"po": "21253", "supplier": "Quality Marble & Granite", "cntr": "", "eta": "2026-05-22", "status": "", "name": "REVOLUX CALACATTA MACCHIA VECCHIA LUX POLISHED MINERAL SLAB B 126X63 2CM (RIGHT)", "sku": "", "category": "Mineral", "type": "REVOLUX", "slabs": 0, "qty": 2.0, "units": "EA", "price": 882.0, "total": 1764.0, "stype": "Unknown"}, {"po": "21249", "supplier": "Pan American Ceramics by Merola Tile LLC", "cntr": "", "eta": "2026-05-22", "status": "", "name": "SYMMETRY SUNRISE LINEN MATTE PORCELAIN 12X24", "sku": "ME10-SSLMP1224", "category": "Porcelain Tile", "type": "TILE", "slabs": 0, "qty": 126.01, "units": "SF", "price": 3.2, "total": 403.23, "stype": "Domestic"}, {"po": "21253", "supplier": "Quality Marble & Granite", "cntr": "", "eta": "2026-05-22", "status": "", "name": "REVOLUX CALACATTA MACCHIA VECCHIA LUX POLISHED MINERAL SLAB A 126X63 2CM (LEFT)", "sku": "", "category": "Mineral", "type": "REVOLUX", "slabs": 0, "qty": 2.0, "units": "EA", "price": 882.0, "total": 1764.0, "stype": "Unknown"}, {"po": "21228", "supplier": "Cosentino N.A. Inc", "cntr": "", "eta": "2026-05-19", "status": "", "name": "VENA ORO POLISHED QUARTZITE 2CM", "sku": "218173.0", "category": "Quartzite", "type": "SLAB", "slabs": 7, "qty": 459.67, "units": "SF", "price": 20.8, "total": 9561.14, "stype": "Unknown"}, {"po": "21228", "supplier": "Cosentino N.A. Inc", "cntr": "", "eta": "2026-05-19", "status": "", "name": "DAKAR 2.0 EX PUL", "sku": "245163.0", "category": "Quartzite", "type": "COSENTINO", "slabs": 0, "qty": 568.0, "units": "SF", "price": 16.3, "total": 9258.4, "stype": "Unknown"}, {"po": "21228", "supplier": "Cosentino N.A. Inc", "cntr": "", "eta": "2026-05-19", "status": "", "name": "ORINOCO 2.0 EX PUL", "sku": "227034.0", "category": "Quartzite", "type": "COSENTINO", "slabs": 0, "qty": 1216.0, "units": "SF", "price": 15.1, "total": 18361.6, "stype": "Unknown"}, {"po": "21228", "supplier": "Cosentino N.A. Inc", "cntr": "", "eta": "2026-05-19", "status": "", "name": "VANCOUVER EX LEATHERED QUARTZITE 2CM", "sku": "248043.0", "category": "Quartzite", "type": "SLAB", "slabs": 14, "qty": 960.54, "units": "SF", "price": 18.5, "total": 17769.99, "stype": "Unknown"}, {"po": "21239", "supplier": "Stonex", "cntr": "", "eta": "2026-05-18", "status": "", "name": "BLUE STONE VENEER MARBLE SPLITFACE LEDGER 8X18", "sku": "ME13-1820", "category": "Ledger", "type": "TILE", "slabs": 0, "qty": 1400.0, "units": "SF", "price": 7.6, "total": 10640.0, "stype": "Domestic"}, {"po": "21274", "supplier": "Roman Marble INC", "cntr": "", "eta": "2026-05-18", "status": "", "name": "TUNDRA GREY HONED MARBLE 2CM 138X77", "sku": "", "category": "Marble", "type": "SLAB", "slabs": 1, "qty": 73.79, "units": "SF", "price": 28.8, "total": 2125.15, "stype": "Domestic"}, {"po": "21262", "supplier": "Happy Floors", "cntr": "", "eta": "2026-05-18", "status": "", "name": "NEXTONE TAUPE NATURAL (RECTIFIED EDGE) TILE 24X48", "sku": "ME35-7402-L", "category": "Porcelain Tile", "type": "TILE", "slabs": 0, "qty": 465.0, "units": "SF", "price": 6.23, "total": 2896.95, "stype": "Domestic"}, {"po": "21236", "supplier": "Total Home Distributors (THD)", "cntr": "", "eta": "2026-05-18", "status": "", "name": "LUGANO MARFIL POLISHED LFT PORCELAIN 48X48", "sku": "ME06-THD0035-00001", "category": "Porcelain Tile", "type": "TILE", "slabs": 0, "qty": 3503.0, "units": "SF", "price": 5.39, "total": 18881.17, "stype": "Domestic"}, {"po": "21259", "supplier": "Stonex", "cntr": "", "eta": "2026-05-18", "status": "", "name": "CRYSTAL WHITE MARBLE SPLIT FACE 8X18", "sku": "ME13-1822", "category": "Natural Stone", "type": "TILE", "slabs": 0, "qty": 11.0, "units": "SF", "price": 7.6, "total": 83.6, "stype": "Domestic"}, {"po": "21245", "supplier": "LX HAUSYS American, Inc.", "cntr": "", "eta": "2026-05-15", "status": "", "name": "EVEREST LX HAUSYS POLISHED QUARTZ 2CM JUMBO ll 130X63*", "sku": "", "category": "Viatera", "type": "LG HAUSYS", "slabs": 0, "qty": 1.0, "units": "EA", "price": 991.15, "total": 991.15, "stype": "Domestic"}, {"po": "21261", "supplier": "EMIL AMERICA", "cntr": "", "eta": "2026-05-14", "status": "", "name": "AURELIA STONE DECOR VERTICAL WHITE NATURAL 12X24", "sku": "ME03-AU20RCT1224DCMT", "category": "", "type": "TILE", "slabs": 0, "qty": 85.05, "units": "SF", "price": 2.95, "total": 250.9, "stype": "Domestic"}, {"po": "21252", "supplier": "Caesarstone Quartz Surfaces", "cntr": "", "eta": "2026-05-13", "status": "", "name": "VANILLA NOIR 5100 POLISHED CAESARSTONE 2CM JUMBO 130X64.6", "sku": "", "category": "CaesarStone", "type": "CAESARSTONE", "slabs": 0, "qty": 9.0, "units": "EA", "price": 1278.9, "total": 11510.1, "stype": "Unknown"}, {"po": "21124", "supplier": "MILANEZI GRANITOS S/A", "cntr": "MSMU2548788", "eta": "2026-06-16", "status": "On the Water", "name": "CRYSTAL FIRE POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 10, "qty": 563.71, "units": "SF", "price": 15.0, "total": 8455.65, "stype": "International"}, {"po": "20902", "supplier": "Zucchi Granite", "cntr": "MEDU6751300", "eta": "2026-05-19", "status": "On the Water", "name": "BELLAGIO POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 641.21, "units": "SF", "price": 10.8, "total": 6925.08, "stype": "International"}, {"po": "20703", "supplier": "MAMERI EXPORT LTDA", "cntr": "CXDU1171760", "eta": "2026-05-01", "status": "Received", "name": "NEGRESCO LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 587.07, "units": "SF", "price": 8.27, "total": 4855.07, "stype": "International"}, {"po": "21260", "supplier": "Glazzio Tiles", "cntr": "", "eta": "", "status": "", "name": "FROST PLAZA TUXEDO GALA GLASS MOSAIC", "sku": "ME15-FPZ-1425", "category": "Mosaic", "type": "TILE", "slabs": 0, "qty": 53.7, "units": "SF", "price": 16.01, "total": 859.8, "stype": "Domestic"}, {"po": "21124", "supplier": "MILANEZI GRANITOS S/A", "cntr": "MSMU2548788", "eta": "2026-06-16", "status": "On the Water", "name": "CRYSTAL FIRE POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 10, "qty": 579.0, "units": "SF", "price": 15.0, "total": 8685.0, "stype": "International"}, {"po": "20396", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "", "eta": "", "status": "", "name": "FANTASY BROWN LEATHER DOLOMITE MARBLE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 10, "qty": 596.58, "units": "SF", "price": 3.6, "total": 2147.68, "stype": "International"}, {"po": "5721", "supplier": "GMA Project Group/Salvini", "cntr": "", "eta": "", "status": "", "name": "STORM POLISHED ME QUARTZ 3CM JUMBO 126X63", "sku": "6270.0", "category": "ME QUARTZ", "type": "ME QUARTZ", "slabs": 0, "qty": 35.0, "units": "EA", "price": 430.11, "total": 15053.85, "stype": "Unknown"}, {"po": "16880", "supplier": "EMPIRESTONE-PHU SON JSC", "cntr": "", "eta": "", "status": "", "name": "CRYSTAL ICE POLISHED N ME QUARTZ 2CM JUMBO 126X63", "sku": "PC106-2", "category": "ME QUARTZ", "type": "ME QUARTZ", "slabs": 0, "qty": 102.0, "units": "EA", "price": 281.6, "total": 28723.2, "stype": "International"}, {"po": "21124", "supplier": "MILANEZI GRANITOS S/A", "cntr": "MSMU2548788", "eta": "2026-06-16", "status": "On the Water", "name": "CRYSTAL WHITE GOLD PRECIOUS STONE MOSAIC MIX SHAPE POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 567.15, "units": "SF", "price": 35.0, "total": 19850.25, "stype": "International"}, {"po": "20902", "supplier": "Zucchi Granite", "cntr": "MEDU6751300", "eta": "2026-05-19", "status": "On the Water", "name": "BELLAGIO POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 643.31, "units": "SF", "price": 10.8, "total": 6947.75, "stype": "International"}, {"po": "20703", "supplier": "MAMERI EXPORT LTDA", "cntr": "CXDU1171760", "eta": "2026-05-01", "status": "Received", "name": "NEGRESCO LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 587.07, "units": "SF", "price": 8.27, "total": 4855.07, "stype": "International"}, {"po": "20883", "supplier": "MAGBAN", "cntr": "", "eta": "", "status": "", "name": "METALICUS LEATHER GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 8, "qty": 428.84, "units": "SF", "price": 6.0, "total": 2573.02, "stype": "International"}, {"po": "21124", "supplier": "MILANEZI GRANITOS S/A", "cntr": "MSMU2548788", "eta": "2026-06-16", "status": "On the Water", "name": "CRYSTAL WHITE PRECIOUS STONE MOSAIC POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 564.14, "units": "SF", "price": 40.0, "total": 22565.6, "stype": "International"}, {"po": "20995", "supplier": "MINERAL STONE EXPORTAO LTDA", "cntr": "TCLU2695440", "eta": "2026-05-29", "status": "On the Water", "name": "PERLA VENATA POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 512.45, "units": "SF", "price": 13.75, "total": 7046.19, "stype": "International"}, {"po": "5990", "supplier": "GMA Project Group/Salvini", "cntr": "", "eta": "", "status": "", "name": "WHITE HARV POLISHED ME QUARTZ 3CM JUMBO 126X63", "sku": "", "category": "ME QUARTZ", "type": "ME QUARTZ", "slabs": 0, "qty": 70.0, "units": "EA", "price": 381.44, "total": 26700.8, "stype": "Unknown"}, {"po": "20883", "supplier": "MAGBAN", "cntr": "", "eta": "", "status": "", "name": "METALICUS LEATHER GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 8, "qty": 428.84, "units": "SF", "price": 6.0, "total": 2573.02, "stype": "International"}, {"po": "21124", "supplier": "MILANEZI GRANITOS S/A", "cntr": "MSMU2548788", "eta": "2026-06-16", "status": "On the Water", "name": "CRYSTAL WHITE PRECIOUS STONE MOSAIC DIAMONDS POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 514.09, "units": "SF", "price": 40.0, "total": 20563.6, "stype": "International"}, {"po": "20902", "supplier": "Zucchi Granite", "cntr": "MEDU6751300", "eta": "2026-05-19", "status": "On the Water", "name": "BELLAGIO POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 633.72, "units": "SF", "price": 10.8, "total": 6844.18, "stype": "International"}, {"po": "20703", "supplier": "MAMERI EXPORT LTDA", "cntr": "CXDU1171760", "eta": "2026-05-01", "status": "Received", "name": "TAJ MAHAL LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 551.12, "units": "SF", "price": 14.4, "total": 7936.13, "stype": "International"}, {"po": "20883", "supplier": "MAGBAN", "cntr": "", "eta": "", "status": "", "name": "BLACK PHANTUS DEEP LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 10, "qty": 628.25, "units": "SF", "price": 10.9, "total": 6847.95, "stype": "International"}, {"po": "21124", "supplier": "MILANEZI GRANITOS S/A", "cntr": "MSMU2548788", "eta": "2026-06-16", "status": "On the Water", "name": "CRYSTAL WHITE PRECIOUS STONE MOSAIC DIAMONDS POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 508.82, "units": "SF", "price": 40.0, "total": 20352.8, "stype": "International"}, {"po": "20396", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "", "eta": "", "status": "", "name": "FANTASY BROWN LEATHER DOLOMITE MARBLE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 9, "qty": 539.8, "units": "SF", "price": 3.6, "total": 1943.27, "stype": "International"}, {"po": "5720", "supplier": "GMA Project Group/Salvini", "cntr": "", "eta": "", "status": "", "name": "CAROL GREY POLISHED ME QUARTZ 3CM JUMBO 126X63", "sku": "2003.0", "category": "ME QUARTZ", "type": "ME QUARTZ", "slabs": 0, "qty": 35.0, "units": "EA", "price": 443.9, "total": 15536.5, "stype": "Unknown"}, {"po": "20883", "supplier": "MAGBAN", "cntr": "", "eta": "", "status": "", "name": "BLACK PHANTUS DEEP LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 516.14, "units": "SF", "price": 10.9, "total": 5625.92, "stype": "International"}, {"po": "21124", "supplier": "MILANEZI GRANITOS S/A", "cntr": "MSMU2548788", "eta": "2026-06-16", "status": "On the Water", "name": "CRYSTAL WHITE POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 437.12, "units": "SF", "price": 15.0, "total": 6556.8, "stype": "International"}, {"po": "20902", "supplier": "Zucchi Granite", "cntr": "MEDU6751300", "eta": "2026-05-19", "status": "On the Water", "name": "BELLAGIO POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 638.18, "units": "SF", "price": 10.8, "total": 6892.3, "stype": "International"}, {"po": "20703", "supplier": "MAMERI EXPORT LTDA", "cntr": "CXDU1171760", "eta": "2026-05-01", "status": "Received", "name": "TAJ MAHAL LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 7, "qty": 482.23, "units": "SF", "price": 14.4, "total": 6944.11, "stype": "International"}, {"po": "20883", "supplier": "MAGBAN", "cntr": "", "eta": "", "status": "", "name": "WHITE CULINA LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 486.75, "units": "SF", "price": 10.0, "total": 4867.47, "stype": "International"}, {"po": "21124", "supplier": "MILANEZI GRANITOS S/A", "cntr": "MSMU2548788", "eta": "2026-06-16", "status": "On the Water", "name": "CRYSTAL WHITE POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 445.19, "units": "SF", "price": 15.0, "total": 6677.85, "stype": "International"}, {"po": "20995", "supplier": "MINERAL STONE EXPORTAO LTDA", "cntr": "TCLU2695440", "eta": "2026-05-29", "status": "On the Water", "name": "PERLA VENATA POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 511.08, "units": "SF", "price": 13.75, "total": 7027.35, "stype": "International"}, {"po": "5720", "supplier": "GMA Project Group/Salvini", "cntr": "", "eta": "", "status": "", "name": "SMOKE POLISHED ME QUARTZ 3CM JUMBO 126X63", "sku": "", "category": "ME QUARTZ", "type": "ME QUARTZ", "slabs": 0, "qty": 35.0, "units": "EA", "price": 446.66, "total": 15633.1, "stype": "Unknown"}, {"po": "20917", "supplier": "MAGBAN", "cntr": "MEDU5466020", "eta": "2026-05-19", "status": "On the Water", "name": "PLATINUS LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 508.4, "units": "SF", "price": 9.0, "total": 4575.6, "stype": "International"}, {"po": "20703", "supplier": "MAMERI EXPORT LTDA", "cntr": "CXDU1171760", "eta": "2026-05-01", "status": "Received", "name": "TAJ MAHAL LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 551.12, "units": "SF", "price": 14.4, "total": 7936.13, "stype": "International"}, {"po": "20902", "supplier": "Zucchi Granite", "cntr": "MEDU6751300", "eta": "2026-05-19", "status": "On the Water", "name": "BELLAGIO POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 636.09, "units": "SF", "price": 10.8, "total": 6869.75, "stype": "International"}, {"po": "5721", "supplier": "GMA Project Group/Salvini", "cntr": "", "eta": "", "status": "", "name": "SMOKE POLISHED ME QUARTZ 3CM JUMBO 126X63", "sku": "", "category": "ME QUARTZ", "type": "ME QUARTZ", "slabs": 0, "qty": 35.0, "units": "EA", "price": 450.56, "total": 15769.6, "stype": "Unknown"}, {"po": "20917", "supplier": "MAGBAN", "cntr": "MEDU5466020", "eta": "2026-05-19", "status": "On the Water", "name": "PLATINUS LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 6, "qty": 383.14, "units": "SF", "price": 9.0, "total": 3448.24, "stype": "International"}, {"po": "20703", "supplier": "MAMERI EXPORT LTDA", "cntr": "CXDU1171760", "eta": "2026-05-01", "status": "Received", "name": "ROSE DE FRANCE POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 10, "qty": 540.35, "units": "SF", "price": 22.0, "total": 11887.7, "stype": "International"}, {"po": "20396", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "", "eta": "", "status": "", "name": "FANTASY BROWN LEATHER DOLOMITE MARBLE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 9, "qty": 544.2, "units": "SF", "price": 3.6, "total": 1959.11, "stype": "International"}, {"po": "20889", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU6705351", "eta": "2026-05-19", "status": "On the Water", "name": "FUSION POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 560.91, "units": "SF", "price": 7.27, "total": 4077.79, "stype": "International"}, {"po": "20883", "supplier": "MAGBAN", "cntr": "", "eta": "", "status": "", "name": "AMAZONITE POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 553.08, "units": "SF", "price": 11.0, "total": 6083.89, "stype": "International"}, {"po": "20703", "supplier": "MAMERI EXPORT LTDA", "cntr": "CXDU1171760", "eta": "2026-05-01", "status": "Received", "name": "TAJ MAHAL POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 563.28, "units": "SF", "price": 12.5, "total": 7041.0, "stype": "International"}, {"po": "20902", "supplier": "Zucchi Granite", "cntr": "MEDU6751300", "eta": "2026-05-19", "status": "On the Water", "name": "ANTHRA BLACK LEATHER GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 8, "qty": 523.04, "units": "SF", "price": 6.5, "total": 3399.79, "stype": "International"}, {"po": "20889", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU6705351", "eta": "2026-05-19", "status": "On the Water", "name": "NAICA BLUE LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 12, "qty": 830.68, "units": "SF", "price": 9.36, "total": 7775.16, "stype": "International"}, {"po": "20917", "supplier": "MAGBAN", "cntr": "MEDU5466020", "eta": "2026-05-19", "status": "On the Water", "name": "NEGRESCO LEATHER GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 6, "qty": 390.56, "units": "SF", "price": 8.0, "total": 3124.49, "stype": "International"}, {"po": "20703", "supplier": "MAMERI EXPORT LTDA", "cntr": "CXDU1171760", "eta": "2026-05-01", "status": "Received", "name": "TAJ MAHAL POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 7, "qty": 439.28, "units": "SF", "price": 12.5, "total": 5491.0, "stype": "International"}, {"po": "20995", "supplier": "MINERAL STONE EXPORTAO LTDA", "cntr": "TCLU2695440", "eta": "2026-05-29", "status": "On the Water", "name": "PERLA VENATA POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 498.63, "units": "SF", "price": 13.75, "total": 6856.16, "stype": "International"}, {"po": "20889", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU6705351", "eta": "2026-05-19", "status": "On the Water", "name": "MONT BLANC LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 7, "qty": 395.61, "units": "SF", "price": 13.0, "total": 5142.88, "stype": "International"}, {"po": "20917", "supplier": "MAGBAN", "cntr": "MEDU5466020", "eta": "2026-05-19", "status": "On the Water", "name": "NEGRESCO LEATHER GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 8, "qty": 520.68, "units": "SF", "price": 8.0, "total": 4165.45, "stype": "International"}, {"po": "20890", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU5131177", "eta": "2026-05-29", "status": "On the Water", "name": "MONT BLANC LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 505.99, "units": "SF", "price": 13.26, "total": 6709.43, "stype": "International"}, {"po": "20902", "supplier": "Zucchi Granite", "cntr": "MEDU6751300", "eta": "2026-05-19", "status": "On the Water", "name": "ANTHRA BLACK LEATHER GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 10, "qty": 648.64, "units": "SF", "price": 6.5, "total": 4216.15, "stype": "International"}, {"po": "20890", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU5131177", "eta": "2026-05-29", "status": "On the Water", "name": "MONT BLANC LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 505.99, "units": "SF", "price": 13.26, "total": 6709.43, "stype": "International"}, {"po": "20917", "supplier": "MAGBAN", "cntr": "MEDU5466020", "eta": "2026-05-19", "status": "On the Water", "name": "NEGRESCO LEATHER GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 8, "qty": 520.07, "units": "SF", "price": 8.0, "total": 4160.59, "stype": "International"}, {"po": "20890", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU5131177", "eta": "2026-05-29", "status": "On the Water", "name": "MONT BLANC LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 503.15, "units": "SF", "price": 13.26, "total": 6671.77, "stype": "International"}, {"po": "20706", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "MSDU2766700", "eta": "2026-05-08", "status": "Received", "name": "FANTASY BROWN LEATHER DOLOMITE MARBLE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 11, "qty": 649.82, "units": "SF", "price": 3.6, "total": 2339.36, "stype": "International"}, {"po": "20890", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU5131177", "eta": "2026-05-29", "status": "On the Water", "name": "MONT BLANC LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 496.09, "units": "SF", "price": 13.26, "total": 6578.15, "stype": "International"}, {"po": "20917", "supplier": "MAGBAN", "cntr": "MEDU5466020", "eta": "2026-05-19", "status": "On the Water", "name": "BLACK PHANTUS DEEP LEATHER GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 16, "qty": 465.44, "units": "SF", "price": 10.9, "total": 5073.25, "stype": "International"}, {"po": "20889", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU6705351", "eta": "2026-05-19", "status": "On the Water", "name": "TAJ MAHAL LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 10, "qty": 636.19, "units": "SF", "price": 14.55, "total": 9256.56, "stype": "International"}, {"po": "20995", "supplier": "MINERAL STONE EXPORTAO LTDA", "cntr": "TCLU2695440", "eta": "2026-05-29", "status": "On the Water", "name": "IJEN CRYSTAL POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 11, "qty": 733.86, "units": "SF", "price": 16.0, "total": 11741.76, "stype": "International"}, {"po": "20890", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU5131177", "eta": "2026-05-29", "status": "On the Water", "name": "TAJ MAHAL LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 635.21, "units": "SF", "price": 16.1, "total": 10226.88, "stype": "International"}, {"po": "20917", "supplier": "MAGBAN", "cntr": "MEDU5466020", "eta": "2026-05-19", "status": "On the Water", "name": "BLACK PHANTUS DEEP LEATHER GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 8, "qty": 468.42, "units": "SF", "price": 10.9, "total": 5105.75, "stype": "International"}, {"po": "20890", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU5131177", "eta": "2026-05-29", "status": "On the Water", "name": "TAJ MAHAL LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 635.21, "units": "SF", "price": 16.1, "total": 10226.88, "stype": "International"}, {"po": "20706", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "MSDU2766700", "eta": "2026-05-08", "status": "Received", "name": "FANTASY BROWN LEATHER DOLOMITE MARBLE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 11, "qty": 640.03, "units": "SF", "price": 3.6, "total": 2304.1, "stype": "International"}, {"po": "20890", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU5131177", "eta": "2026-05-29", "status": "On the Water", "name": "TAJ MAHAL LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 611.6, "units": "SF", "price": 16.1, "total": 9846.76, "stype": "International"}, {"po": "20883", "supplier": "MAGBAN", "cntr": "", "eta": "", "status": "", "name": "MATARAZZO HONED MARBLE 2CM", "sku": "", "category": "Marble", "type": "SLAB", "slabs": 6, "qty": 388.96, "units": "SF", "price": 10.0, "total": 3889.57, "stype": "International"}, {"po": "20890", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU5131177", "eta": "2026-05-29", "status": "On the Water", "name": "TAJ MAHAL LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 533.2, "units": "SF", "price": 16.1, "total": 8584.52, "stype": "International"}, {"po": "20995", "supplier": "MINERAL STONE EXPORTAO LTDA", "cntr": "TCLU2695440", "eta": "2026-05-29", "status": "On the Water", "name": "IJEN CRYSTAL POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 10, "qty": 666.54, "units": "SF", "price": 16.0, "total": 10664.64, "stype": "International"}, {"po": "20889", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU6705351", "eta": "2026-05-19", "status": "On the Water", "name": "FUSION LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 560.91, "units": "SF", "price": 8.32, "total": 4666.75, "stype": "International"}, {"po": "20917", "supplier": "MAGBAN", "cntr": "MEDU5466020", "eta": "2026-05-19", "status": "On the Water", "name": "TITANIUM POLISHED GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 6, "qty": 392.69, "units": "SF", "price": 6.0, "total": 2356.12, "stype": "International"}, {"po": "20889", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU6705351", "eta": "2026-05-19", "status": "On the Water", "name": "NAICA LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 9, "qty": 611.55, "units": "SF", "price": 14.56, "total": 8904.14, "stype": "International"}, {"po": "20706", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "MSDU2766700", "eta": "2026-05-08", "status": "Received", "name": "FANTASY BROWN LEATHER DOLOMITE MARBLE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 10, "qty": 568.01, "units": "SF", "price": 3.6, "total": 2044.83, "stype": "International"}, {"po": "20889", "supplier": "Marmi Graniti Favorita", "cntr": "MEDU6705351", "eta": "2026-05-19", "status": "On the Water", "name": "EMERALD GREEN POLISHED QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 505.73, "units": "SF", "price": 18.72, "total": 9467.28, "stype": "International"}, {"po": "20917", "supplier": "MAGBAN", "cntr": "MEDU5466020", "eta": "2026-05-19", "status": "On the Water", "name": "TITANIUM POLISHED GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 7, "qty": 458.42, "units": "SF", "price": 6.0, "total": 2750.5, "stype": "International"}, {"po": "20995", "supplier": "MINERAL STONE EXPORTAO LTDA", "cntr": "TCLU2695440", "eta": "2026-05-29", "status": "On the Water", "name": "IJEN BLUE LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 540.09, "units": "SF", "price": 16.0, "total": 8641.44, "stype": "International"}, {"po": "20883", "supplier": "MAGBAN", "cntr": "", "eta": "", "status": "", "name": "TITANIUM POLISHED GRANITE 2CM", "sku": "", "category": "Granite", "type": "SLAB", "slabs": 4, "qty": 261.32, "units": "SF", "price": 6.0, "total": 1567.94, "stype": "International"}, {"po": "20706", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "MSDU2766700", "eta": "2026-05-08", "status": "Received", "name": "FANTASY BROWN POLISHED DOLOMITE MARBLE 2CM", "sku": "", "category": "Marble", "type": "SLAB", "slabs": 11, "qty": 662.06, "units": "SF", "price": 3.2, "total": 2118.58, "stype": "International"}, {"po": "20995", "supplier": "MINERAL STONE EXPORTAO LTDA", "cntr": "TCLU2695440", "eta": "2026-05-29", "status": "On the Water", "name": "IJEN BLUE LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 540.09, "units": "SF", "price": 16.0, "total": 8641.44, "stype": "International"}, {"po": "20706", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "MSDU2766700", "eta": "2026-05-08", "status": "Received", "name": "FANTASY BROWN POLISHED DOLOMITE MARBLE 2CM", "sku": "", "category": "Marble", "type": "SLAB", "slabs": 11, "qty": 665.77, "units": "SF", "price": 3.2, "total": 2130.46, "stype": "International"}, {"po": "20995", "supplier": "MINERAL STONE EXPORTAO LTDA", "cntr": "TCLU2695440", "eta": "2026-05-29", "status": "On the Water", "name": "IJEN BLUE LEATHER QUARTZITE 2CM", "sku": "", "category": "Quartzite", "type": "SLAB", "slabs": 8, "qty": 539.36, "units": "SF", "price": 16.0, "total": 8629.76, "stype": "International"}, {"po": "20706", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "MSDU2766700", "eta": "2026-05-08", "status": "Received", "name": "FANTASY BROWN POLISHED DOLOMITE MARBLE 2CM", "sku": "", "category": "Marble", "type": "SLAB", "slabs": 11, "qty": 652.87, "units": "SF", "price": 3.2, "total": 2089.18, "stype": "International"}, {"po": "21248", "supplier": "Cosentino N.A. Inc", "cntr": "", "eta": "", "status": "", "name": "AWAKE KC POLISHED DEKTON 2CM JUMBO", "sku": "", "category": "Dekton", "type": "COSENTINO", "slabs": 0, "qty": 422.78, "units": "SF", "price": 41.55, "total": 17566.51, "stype": "Unknown"}, {"po": "20396", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "", "eta": "", "status": "", "name": "FANTASY BROWN POLISHED DOLOMITE MARBLE 2CM", "sku": "", "category": "Marble", "type": "SLAB", "slabs": 9, "qty": 491.21, "units": "SF", "price": 3.2, "total": 1571.88, "stype": "International"}, {"po": "20396", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "", "eta": "", "status": "", "name": "FANTASY BROWN POLISHED DOLOMITE MARBLE 2CM", "sku": "", "category": "Marble", "type": "SLAB", "slabs": 9, "qty": 576.95, "units": "SF", "price": 3.2, "total": 1846.25, "stype": "International"}, {"po": "20396", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "", "eta": "", "status": "", "name": "FANTASY BROWN POLISHED DOLOMITE MARBLE 2CM", "sku": "", "category": "Marble", "type": "SLAB", "slabs": 9, "qty": 578.0, "units": "SF", "price": 3.2, "total": 1849.61, "stype": "International"}, {"po": "20396", "supplier": "RADIANT EXPORTS PVT. LTD.", "cntr": "", "eta": "", "status": "", "name": "FANTASY BROWN POLISHED DOLOMITE MARBLE 2CM", "sku": "", "category": "Marble", "type": "SLAB", "slabs": 9, "qty": 568.14, "units": "SF", "price": 3.2, "total": 1818.04, "stype": "International"}, {"po": "17417", "supplier": "VIETNAM QUARTZ JSC.", "cntr": "", "eta": "", "status": "", "name": "WHITE HARV POLISHED ME QUARTZ 2CM JUMBO 126X63", "sku": "VQ2031", "category": "ME QUARTZ", "type": "ME QUARTZ", "slabs": 0, "qty": 102.0, "units": "EA", "price": 220.16, "total": 22456.32, "stype": "International"}];
+const poStatusData = [{"po": "18370", "supplier": "Bonotti Stone  Trading Intl SRL/Carrara", "stype": "International", "cntr": "MSNU2046377", "status": "Received", "eta": "", "slabs": 1, "cost": 899.0, "material": "BIANCO NEVE POLISHED MARBLE 2CM", "category": "Marble", "bg": "C8E6C9", "fg": "1B5E20"}, {"po": "21229", "supplier": "LAPIS MARMI SRL", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 10500.15, "material": "BIANCO NEVE POLISHED MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "20278", "supplier": "Natural Stone Resources (NSR)", "stype": "Distributor", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 4, "cost": 15763.25, "material": "BLUE BAHIA POLISHED GRANITE 2CM", "category": "Granite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21171", "supplier": "Marmi Orobici Graniti S.P.A", "stype": "International", "cntr": "MEDU1200860", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 8597.98, "material": "COLLEMANDINA POLISHED MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "21229", "supplier": "LAPIS MARMI SRL", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 36, "cost": 12582.44, "material": "EMPERADOR LIGHT POLISHED MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "21082", "supplier": "GRANITI EXPORT", "stype": "International", "cntr": "MSMU1138500", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 8559.81, "material": "FUSION POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21082", "supplier": "GRANITI EXPORT", "stype": "International", "cntr": "MSMU1138500", "status": "CNTR Factory Loading", "eta": "", "slabs": 9, "cost": 7731.72, "material": "FUSION POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21256", "supplier": "RADIANT EXPORTS PVT. LTD.", "stype": "International", "cntr": "nan", "status": "CNTR Pending Approval", "eta": "", "slabs": 0, "cost": 2880.0, "material": "RIVER WHITE POLISHED GRANITE 2CM", "category": "Granite", "bg": "E3F2FD", "fg": "1565C0"}, {"po": "21117", "supplier": "ARGOS STONES LTDA.", "stype": "International", "cntr": "MSBU3240456", "status": "CNTR On the Water", "eta": "", "slabs": 8, "cost": 7357.65, "material": "TAJ MAHAL POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21117", "supplier": "ARGOS STONES LTDA.", "stype": "International", "cntr": "MSBU3240456", "status": "CNTR On the Water", "eta": "", "slabs": 9, "cost": 8513.7, "material": "TAJ MAHAL POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21117", "supplier": "ARGOS STONES LTDA.", "stype": "International", "cntr": "MSBU3240456", "status": "CNTR On the Water", "eta": "", "slabs": 9, "cost": 8300.55, "material": "TAJ MAHAL POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "20891", "supplier": "Marmi Graniti Favorita", "stype": "International", "cntr": "SEGU1509028", "status": "CNTR On the Water", "eta": "", "slabs": 25, "cost": 27660.32, "material": "TAJ MAHAL LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21117", "supplier": "ARGOS STONES LTDA.", "stype": "International", "cntr": "MSBU3240456", "status": "CNTR On the Water", "eta": "", "slabs": 12, "cost": 11484.6, "material": "TAJ MAHAL LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21257", "supplier": "Zucchi Granite", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 11889.12, "material": "TAJ MAHAL LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21257", "supplier": "Zucchi Granite", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 11901.53, "material": "TAJ MAHAL LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21257", "supplier": "Zucchi Granite", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 11922.44, "material": "TAJ MAHAL LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21257", "supplier": "Zucchi Granite", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 11483.68, "material": "TAJ MAHAL LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "20891", "supplier": "Marmi Graniti Favorita", "stype": "International", "cntr": "SEGU1509028", "status": "CNTR On the Water", "eta": "", "slabs": 16, "cost": 15890.66, "material": "MONT BLANCE POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21243", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "MEDU6874480", "status": "CNTR Factory Loading", "eta": "", "slabs": 17, "cost": 19358.79, "material": "MONT BLANCE POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "20702", "supplier": "MAGBAN", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 7, "cost": 8449.4, "material": "MICHELANGELO POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "13779", "supplier": "MR. GRANITE CONSTRUCTION LLC", "stype": "nan", "cntr": "nan", "status": "Received", "eta": "", "slabs": 0, "cost": 659.85, "material": "nan", "category": "Pre-Fab", "bg": "C8E6C9", "fg": "1B5E20"}, {"po": "13779", "supplier": "MR. GRANITE CONSTRUCTION LLC", "stype": "nan", "cntr": "nan", "status": "Received", "eta": "", "slabs": 0, "cost": 710.08, "material": "nan", "category": "Pre-Fab", "bg": "C8E6C9", "fg": "1B5E20"}, {"po": "13779", "supplier": "MR. GRANITE CONSTRUCTION LLC", "stype": "nan", "cntr": "nan", "status": "Received", "eta": "", "slabs": 0, "cost": 783.09, "material": "nan", "category": "Pre-Fab", "bg": "C8E6C9", "fg": "1B5E20"}, {"po": "21229", "supplier": "LAPIS MARMI SRL", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 20, "cost": 6927.31, "material": "CARRARA VENATO POLISHED MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 3040.08, "material": "ONYX GREEN POLISHED PORCELAIN 12MM A 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 3040.08, "material": "ONYX GREEN POLISHED PORCELAIN 12MM B 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "14656", "supplier": "Jacobe Enterprises", "stype": "Distributor", "cntr": "nan", "status": "Pending Receiving", "eta": "2023-02-03", "slabs": 9, "cost": 12794.89, "material": "BLACK VERMONT DEEP TEK GRANITE 2CM", "category": "Granite", "bg": "C8E6C9", "fg": "1B5E20"}, {"po": "20278", "supplier": "Natural Stone Resources (NSR)", "stype": "Distributor", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 4, "cost": 9259.55, "material": "VIVID GREEN POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21082", "supplier": "GRANITI EXPORT", "stype": "International", "cntr": "MSMU1138500", "status": "CNTR Factory Loading", "eta": "", "slabs": 9, "cost": 6464.7, "material": "CHANTILLY LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "15134", "supplier": "BST SRL", "stype": "International", "cntr": "CXDU1418439", "status": "Received", "eta": "", "slabs": 0, "cost": 28196.0, "material": "CALACATTA LASA POLISHED N ME QUARTZ 2CM JUMBO A 128X63", "category": "Me Quartz", "bg": "C8E6C9", "fg": "1B5E20"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 3800.1, "material": "CALACATTA MACCHIA LUX POLISHED PORCELAIN 12MM A 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 3800.1, "material": "CALACATTA MACCHIA LUX POLISHED PORCELAIN 12MM B 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21161", "supplier": "Bonotti Stone  Trading Intl SRL/Carrara", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 18, "cost": 15042.1, "material": "SILVER ROOTS POLISHED MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "21161", "supplier": "Bonotti Stone  Trading Intl SRL/Carrara", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 18, "cost": 15042.1, "material": "SILVER ROOTS LEATHER MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 2620.16, "material": "QUARZO LUX NATURALE MATTE PORCELAIN 12MM A 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 2620.16, "material": "QUARZO LUX NATURALE MATTE PORCELAIN 12MM B 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "18727", "supplier": "Royal Stone & Tile", "stype": "nan", "cntr": "nan", "status": "Canceled", "eta": "2025-02-14", "slabs": 0, "cost": 1100.0, "material": "AGATA BLUE POLISHED PORCELAIN 12MM A 128X64", "category": "Porcelain Slab", "bg": "FFCDD2", "fg": "B71C1C"}, {"po": "21171", "supplier": "Marmi Orobici Graniti S.P.A", "stype": "International", "cntr": "MEDU1200860", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 11429.37, "material": "CREMA MARFIL EXTRA POLISHED MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "17994", "supplier": "BLACKHAWK DEVELOPERS LLC", "stype": "Domestic", "cntr": "nan", "status": "PO Pending", "eta": "", "slabs": 0, "cost": 17546.0, "material": "nan", "category": "Porcelain Tile", "bg": "F5F5F5", "fg": "757575"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 1140.03, "material": "LUMIX POLISHED PORCELAIN 12MM A 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 1140.03, "material": "LUMIX POLISHED PORCELAIN 12MM B 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21275", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 20028.16, "material": "KRYSTALLUS DIAMANTO POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21275", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 17802.88, "material": "KRYSTALLUS DIAMANTO POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21171", "supplier": "Marmi Orobici Graniti S.P.A", "stype": "International", "cntr": "MEDU1200860", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 26173.35, "material": "BIANCO RHINO LEATHER MARBLE 2CM", "category": "Granite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21171", "supplier": "Marmi Orobici Graniti S.P.A", "stype": "International", "cntr": "MEDU1200860", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 23004.26, "material": "PYTHON EXTRA LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21161", "supplier": "Bonotti Stone  Trading Intl SRL/Carrara", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 20, "cost": 17065.38, "material": "CARBON BLACK DEEP TECH QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21171", "supplier": "Marmi Orobici Graniti S.P.A", "stype": "International", "cntr": "MEDU1200860", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 7642.74, "material": "COLLEMANDINA HONED MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "20469", "supplier": "Aurora Quartz", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 3325.0, "material": "ZOLARA MIST ME QUARTZ POLISHED 2CM SUPER JUMBO A 138.5X79", "category": "Me Quartz", "bg": "F5F5F5", "fg": "757575"}, {"po": "20469", "supplier": "Aurora Quartz", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 6650.0, "material": "ASHEN DALE ME QUARTZ POLISHED 2CM SUPER JUMBO 138.5X79", "category": "Me Quartz", "bg": "F5F5F5", "fg": "757575"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 2660.07, "material": "IVORY GIOIELLO POLISHED PORCELAIN 12MM A 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 2660.07, "material": "IVORY GIOIELLO POLISHED PORCELAIN 12MM B 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21256", "supplier": "RADIANT EXPORTS PVT. LTD.", "stype": "International", "cntr": "nan", "status": "CNTR Pending Approval", "eta": "", "slabs": 0, "cost": 2280.0, "material": "VISCON WHITE POLISHED GRANITE 2CM", "category": "Granite", "bg": "E3F2FD", "fg": "1565C0"}, {"po": "21212", "supplier": "MAMERI EXPORT LTDA", "stype": "International", "cntr": "MSDU1672864", "status": "CNTR Factory Loading", "eta": "", "slabs": 9, "cost": 3582.05, "material": "CRISTALITA BLUE LEATHER MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "20469", "supplier": "Aurora Quartz", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 3325.0, "material": "ZOLARA MIST ME QUARTZ POLISHED 2CM SUPER JUMBO B 138.5X79", "category": "Me Quartz", "bg": "F5F5F5", "fg": "757575"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 3040.08, "material": "GOLDEN AMBRA POLISHED PORCELAIN 12MM A 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 3040.08, "material": "GOLDEN AMBRA POLISHED PORCELAIN 12MM B 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 3275.2, "material": "SASSI DI MATERA NATURAL R9 PORCELAIN 12MM 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21161", "supplier": "Bonotti Stone  Trading Intl SRL/Carrara", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 9240.98, "material": "GRIS DU ROI POLISHED MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "21257", "supplier": "Zucchi Granite", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 3729.83, "material": "ANTHRA BLACK LEATHER GRANITE 2CM", "category": "Granite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21257", "supplier": "Zucchi Granite", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 9, "cost": 3440.91, "material": "ANTHRA BLACK LEATHER GRANITE 2CM", "category": "Granite", "bg": "F5F5F5", "fg": "757575"}, {"po": "20702", "supplier": "MAGBAN", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 9, "cost": 3591.21, "material": "BLACK PHANTUS DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "20702", "supplier": "MAGBAN", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 19, "cost": 13286.37, "material": "BLACK PHANTUS DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "20702", "supplier": "MAGBAN", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 16, "cost": 12917.63, "material": "PLATINUS DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21243", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "MEDU6874480", "status": "CNTR Factory Loading", "eta": "", "slabs": 16, "cost": 14778.45, "material": "AMAZON REEF POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21275", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 17557.92, "material": "EXPLOSION BLUE DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21275", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 13246.2, "material": "MYSTIC BLUE DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "19740", "supplier": "Cosentino N.A. Inc", "stype": "Distributor", "cntr": "MSNU2546937", "status": "CNTR - BUNDLE @ Yard/Transloading", "eta": "", "slabs": 0, "cost": 1754.5, "material": "TAJNAR ECLOS GLO 2CM", "category": "Eclos", "bg": "E8EAF6", "fg": "283593"}, {"po": "19740", "supplier": "Cosentino N.A. Inc", "stype": "Distributor", "cntr": "MSNU2546937", "status": "CNTR - BUNDLE @ Yard/Transloading", "eta": "", "slabs": 0, "cost": 2017.82, "material": "LEGND ECLOS SMO 2CM", "category": "Eclos", "bg": "E8EAF6", "fg": "283593"}, {"po": "19740", "supplier": "Cosentino N.A. Inc", "stype": "Distributor", "cntr": "MSNU2546937", "status": "CNTR - BUNDLE @ Yard/Transloading", "eta": "", "slabs": 0, "cost": 4035.64, "material": "PHANTOME ECLOS SMO 2CM", "category": "Eclos", "bg": "E8EAF6", "fg": "283593"}, {"po": "21243", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "MEDU6874480", "status": "CNTR Factory Loading", "eta": "", "slabs": 8, "cost": 12474.66, "material": "BOTANIC CRYSTAL POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21243", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "MEDU6874480", "status": "CNTR Factory Loading", "eta": "", "slabs": 8, "cost": 25164.9, "material": "BOTANIC CRYSTAL POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21082", "supplier": "GRANITI EXPORT", "stype": "International", "cntr": "MSMU1138500", "status": "CNTR Factory Loading", "eta": "", "slabs": 7, "cost": 3119.61, "material": "TITANIUM DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21082", "supplier": "GRANITI EXPORT", "stype": "International", "cntr": "MSMU1138500", "status": "CNTR Factory Loading", "eta": "", "slabs": 8, "cost": 3374.34, "material": "TITANIUM DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21082", "supplier": "GRANITI EXPORT", "stype": "International", "cntr": "MSMU1138500", "status": "CNTR Factory Loading", "eta": "", "slabs": 7, "cost": 2937.61, "material": "TITANIUM DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21257", "supplier": "Zucchi Granite", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 8, "cost": 18877.64, "material": "ILUMINATO HONED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "20469", "supplier": "Aurora Quartz", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 29925.0, "material": "CARRARA NOVA ME QUARTZ POLISHED 3CM SUPER JUMBO 138.5X79", "category": "Me Quartz", "bg": "F5F5F5", "fg": "757575"}, {"po": "21161", "supplier": "Bonotti Stone  Trading Intl SRL/Carrara", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 9240.98, "material": "GRIS DU ROI HONED MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "20702", "supplier": "MAGBAN", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 8, "cost": 17615.08, "material": "GREEN EMANUELE POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "20702", "supplier": "MAGBAN", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 7, "cost": 8578.2, "material": "MICHELANGELO DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "20891", "supplier": "Marmi Graniti Favorita", "stype": "International", "cntr": "SEGU1509028", "status": "CNTR On the Water", "eta": "", "slabs": 18, "cost": 22635.24, "material": "nan", "category": "Quartzite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "20891", "supplier": "Marmi Graniti Favorita", "stype": "International", "cntr": "SEGU1509028", "status": "CNTR On the Water", "eta": "", "slabs": 8, "cost": 8401.38, "material": "nan", "category": "Quartzite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21082", "supplier": "GRANITI EXPORT", "stype": "International", "cntr": "MSMU1138500", "status": "CNTR Factory Loading", "eta": "", "slabs": 9, "cost": 7394.9, "material": "FUSION DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21212", "supplier": "MAMERI EXPORT LTDA", "stype": "International", "cntr": "MSDU1672864", "status": "CNTR Factory Loading", "eta": "", "slabs": 7, "cost": 6357.86, "material": "FUSION DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 2947.77, "material": "QUARZITE TAJ MAHAL NATURAL MATTE PORCELAIN 12MM A 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 2947.77, "material": "QUARZITE TAJ MAHAL NATURAL MATTE PORCELAIN 12MM B 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 3040.08, "material": "QUARZITE TAJ MAHAL POLISHED PORCELAIN 12MM B 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21071", "supplier": "LEVEL", "stype": "International", "cntr": "TCNU2346657", "status": "CNTR On the Water", "eta": "", "slabs": 0, "cost": 3040.08, "material": "QUARZITE TAJ MAHAL POLISHED PORCELAIN 12MM A 128X64", "category": "Porcelain Slab", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21082", "supplier": "GRANITI EXPORT", "stype": "International", "cntr": "MSMU1138500", "status": "CNTR Factory Loading", "eta": "", "slabs": 5, "cost": 2840.26, "material": "AMAZON POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21117", "supplier": "ARGOS STONES LTDA.", "stype": "International", "cntr": "MSBU3240456", "status": "CNTR On the Water", "eta": "", "slabs": 8, "cost": 4095.91, "material": "DUETTO DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21117", "supplier": "ARGOS STONES LTDA.", "stype": "International", "cntr": "MSBU3240456", "status": "CNTR On the Water", "eta": "", "slabs": 8, "cost": 4060.49, "material": "DUETTO DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21117", "supplier": "ARGOS STONES LTDA.", "stype": "International", "cntr": "MSBU3240456", "status": "CNTR On the Water", "eta": "", "slabs": 6, "cost": 1521.28, "material": "GALAXY DEEP LEATHER GRANITE 2CM", "category": "Granite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21117", "supplier": "ARGOS STONES LTDA.", "stype": "International", "cntr": "MSBU3240456", "status": "CNTR On the Water", "eta": "", "slabs": 8, "cost": 2028.32, "material": "GALAXY DEEP LEATHER GRANITE 2CM", "category": "Granite", "bg": "BBDEFB", "fg": "0D47A1"}, {"po": "21243", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "MEDU6874480", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 13175.1, "material": "MYSTIC BLUE POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21243", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "MEDU6874480", "status": "CNTR Factory Loading", "eta": "", "slabs": 8, "cost": 14598.9, "material": "FIJI POLISHED QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21256", "supplier": "RADIANT EXPORTS PVT. LTD.", "stype": "International", "cntr": "nan", "status": "CNTR Pending Approval", "eta": "", "slabs": 0, "cost": 4560.0, "material": "VISCON WHITE DEEP LEATHER GRANITE 2CM", "category": "Granite", "bg": "E3F2FD", "fg": "1565C0"}, {"po": "21256", "supplier": "RADIANT EXPORTS PVT. LTD.", "stype": "International", "cntr": "nan", "status": "CNTR Pending Approval", "eta": "", "slabs": 0, "cost": 2880.0, "material": "RIVER WHITE DEEP LEATHER GRANITE 2CM", "category": "Granite", "bg": "E3F2FD", "fg": "1565C0"}, {"po": "21256", "supplier": "RADIANT EXPORTS PVT. LTD.", "stype": "International", "cntr": "nan", "status": "CNTR Pending Approval", "eta": "", "slabs": 0, "cost": 2670.0, "material": "WHITE RIVER POLISHED GRANITE 2CM", "category": "Granite", "bg": "E3F2FD", "fg": "1565C0"}, {"po": "21256", "supplier": "RADIANT EXPORTS PVT. LTD.", "stype": "International", "cntr": "nan", "status": "CNTR Pending Approval", "eta": "", "slabs": 0, "cost": 2670.0, "material": "WHITE RIVER DEEP LEATHER GRANITE 2CM", "category": "Granite", "bg": "E3F2FD", "fg": "1565C0"}, {"po": "21212", "supplier": "MAMERI EXPORT LTDA", "stype": "International", "cntr": "MSDU1672864", "status": "CNTR Factory Loading", "eta": "", "slabs": 26, "cost": 15011.93, "material": "COPACABANA DEEP LEATHER GRANITE 2CM", "category": "Granite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21212", "supplier": "MAMERI EXPORT LTDA", "stype": "International", "cntr": "MSDU1672864", "status": "CNTR Factory Loading", "eta": "", "slabs": 7, "cost": 5768.27, "material": "BIANCATTO LEATHER DOLOMITE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "21212", "supplier": "MAMERI EXPORT LTDA", "stype": "International", "cntr": "MSDU1672864", "status": "CNTR Factory Loading", "eta": "", "slabs": 17, "cost": 13966.42, "material": "BIANCATTO POLISHED DOLOMITE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "21229", "supplier": "LAPIS MARMI SRL", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 2179.93, "material": "BOTTICINO SICILIANO POLISHED MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "21229", "supplier": "LAPIS MARMI SRL", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 10, "cost": 2179.93, "material": "BOTTICINO SICILIANO LEATHER MARBLE 2CM", "category": "Marble", "bg": "F5F5F5", "fg": "757575"}, {"po": "21275", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 9262.98, "material": "VENARIA REALE LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21275", "supplier": "DECOLORES MARMORES E GRANITOS DO BRASIL S.A.", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 15395.8, "material": "BLACK RAJ DEEP LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "16466", "supplier": "Glazzio Tiles", "stype": "Distributor", "cntr": "nan", "status": "Received", "eta": "2024-03-11", "slabs": 0, "cost": 0.0, "material": "CRYSTILE ICE MIST GLOSSY 4X12", "category": "Mosaic", "bg": "C8E6C9", "fg": "1B5E20"}, {"po": "15631", "supplier": "Cambria USA", "stype": "Manufacturer", "cntr": "nan", "status": "Canceled", "eta": "2023-10-05", "slabs": 0, "cost": 4854.0, "material": "SKARA BRAE POLISHED CAMBRIA 2CM JUMBO 132X65.5", "category": "Cambria", "bg": "FFCDD2", "fg": "B71C1C"}, {"po": "21270", "supplier": "Moma Ceramica Group (Former Estima USA)", "stype": "Domestic", "cntr": "nan", "status": "Carrier Deliver to ME", "eta": "", "slabs": 0, "cost": 15946.25, "material": "PIETRA LIGURE AVORIO NATURAL 48X48", "category": "Porcelain Tile", "bg": "FFF9C4", "fg": "F57F17"}, {"po": "21285", "supplier": "DECO VITA USA INC.", "stype": "nan", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 775.0, "material": "SAHARA NOIR SUGAR EFFECT POLISHED PORCELAIN 24X48", "category": "Porcelain Tile", "bg": "F5F5F5", "fg": "757575"}, {"po": "20306", "supplier": "CONSOLIDATE STONE GROUP LLC dba: Zucchi CA", "stype": "Domestic", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 0.0, "material": "nan", "category": "Quartzite", "bg": "F5F5F5", "fg": "757575"}, {"po": "21276", "supplier": "LX HAUSYS American, Inc.", "stype": "Domestic", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 6281.05, "material": "TAJ DUNA LX HAUSYS POLISHED QUARTZ 2CM JUMBO l 126X63", "category": "Viatera", "bg": "F5F5F5", "fg": "757575"}, {"po": "21276", "supplier": "LX HAUSYS American, Inc.", "stype": "Domestic", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 48450.0, "material": "NOCTURNE LX HAUSYS POLISHED QUARTZ 2CM JUMBO l 126X63", "category": "Viatera", "bg": "F5F5F5", "fg": "757575"}, {"po": "21279", "supplier": "Elysium Mosaics, Inc.", "stype": "Distributor", "cntr": "nan", "status": "Items Back Ordered", "eta": "2026-06-15", "slabs": 0, "cost": 5414.93, "material": "REVES CHOCO GLOSSY PORCELAIN 24X48", "category": "Porcelain Tile", "bg": "FFCDD2", "fg": "B71C1C"}, {"po": "21276", "supplier": "LX HAUSYS American, Inc.", "stype": "Domestic", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 4095.0, "material": "DELICATO LX HAUSYS POLISHED QUARTZ 2CM JUMBO ll 130X63*", "category": "Viatera", "bg": "F5F5F5", "fg": "757575"}, {"po": "21276", "supplier": "LX HAUSYS American, Inc.", "stype": "Domestic", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 5886.55, "material": "SPLENDOR LX HAUSYS POLISHED QUARTZ 2CM JUMBO ll 130X63*", "category": "Viatera", "bg": "F5F5F5", "fg": "757575"}, {"po": "21255", "supplier": "LX HAUSYS American, Inc.", "stype": "Domestic", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 4299.75, "material": "DORATO LX HAUSYS POLISHED QUARTZ 2CM JUMBO ll 130X63*", "category": "Viatera", "bg": "F5F5F5", "fg": "757575"}, {"po": "21278", "supplier": "EPC-European Porcelain & Ceramics", "stype": "Domestic", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 12797.52, "material": "ONICE WHITE POLISHED 24X48", "category": "Porcelain Tile", "bg": "F5F5F5", "fg": "757575"}, {"po": "21278", "supplier": "EPC-European Porcelain & Ceramics", "stype": "Domestic", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 455.0, "material": "ONICE WHITE POLISHED 48X48", "category": "Porcelain Tile", "bg": "F5F5F5", "fg": "757575"}, {"po": "18332", "supplier": "Jacobe Enterprises", "stype": "Distributor", "cntr": "nan", "status": "Pending Receiving", "eta": "2024-11-25", "slabs": 3, "cost": 1652.59, "material": "SHADOW STORM POLISHED MARBLE 2CM", "category": "Marble", "bg": "C8E6C9", "fg": "1B5E20"}, {"po": "21016", "supplier": "PlanetStone SRL", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 84606.96, "material": "NAVONA LIGHT HONED TRAVERTINE 2CM", "category": "Travertine", "bg": "F5F5F5", "fg": "757575"}, {"po": "21016", "supplier": "PlanetStone SRL", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 22421.16, "material": "24X24 NAVONA LIGHT HONED TRAVERTINE", "category": "Travertine", "bg": "F5F5F5", "fg": "757575"}, {"po": "21016", "supplier": "PlanetStone SRL", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 4428.3, "material": "6X24 NAVONA LIGHT HONED TRAVERTINE", "category": "Travertine", "bg": "F5F5F5", "fg": "757575"}, {"po": "21016", "supplier": "PlanetStone SRL", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 16828.56, "material": "NAVONA LIGHT HONED TRAVERTINE 12X24", "category": "Travertine", "bg": "F5F5F5", "fg": "757575"}, {"po": "21016", "supplier": "PlanetStone SRL", "stype": "International", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 8796.96, "material": "NAVONA LIGHT HONED TRAVERTINE 2X2", "category": "Travertine", "bg": "F5F5F5", "fg": "757575"}, {"po": "21238", "supplier": "Atlas Concorde USA Inc", "stype": "Domestic", "cntr": "nan", "status": "Supplier Deliver to ME", "eta": "2026-05-18", "slabs": 0, "cost": 1240.32, "material": "MEMORY OAK VANILLA MATTE RECTIFIED PORCELAIN 7-3/4X39-3/8", "category": "Porcelain Tile", "bg": "FFF9C4", "fg": "F57F17"}, {"po": "21283", "supplier": "Total Home Distributors (THD)", "stype": "Distributor", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 3468.96, "material": "MEXICAN PAVERS SALTILLO REGULAR HEX NATURAL 12X12", "category": "Natural Stone", "bg": "F5F5F5", "fg": "757575"}, {"po": "21283", "supplier": "Total Home Distributors (THD)", "stype": "Distributor", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 903.0, "material": "MEXICAN PAVERS SALTILLO REGULAR SQUARE 12X12", "category": "Natural Stone", "bg": "F5F5F5", "fg": "757575"}, {"po": "14856", "supplier": "Jacobe Enterprises", "stype": "Distributor", "cntr": "nan", "status": "Received", "eta": "", "slabs": 0, "cost": 9.52, "material": "TAJ MAHAL LEATHER QUARTZITE 2CM", "category": "Quartzite", "bg": "C8E6C9", "fg": "1B5E20"}, {"po": "17566", "supplier": "Cosentino N.A. Inc", "stype": "Distributor", "cntr": "nan", "status": "Received", "eta": "", "slabs": 0, "cost": 117.56, "material": "LAURENT MATTE DEKTON 2CM", "category": "Dekton", "bg": "C8E6C9", "fg": "1B5E20"}, {"po": "15260", "supplier": "Total Home Distributors (THD)", "stype": "Distributor", "cntr": "nan", "status": "Canceled", "eta": "", "slabs": 0, "cost": 100.59, "material": "TELE DI MARMO RELOADED LFT CALACATTA POLISHED PORCELAIN 24X48", "category": "Porcelain Tile", "bg": "FFCDD2", "fg": "B71C1C"}, {"po": "19715", "supplier": "LX HAUSYS American, Inc.", "stype": "Domestic", "cntr": "nan", "status": "On Hold", "eta": "", "slabs": 0, "cost": 2508.0, "material": "WHITE PEARL LX HAUSYS POLISHED QUARTZ 3CM JUMBO ll 130X63", "category": "Viatera", "bg": "FFCDD2", "fg": "B71C1C"}, {"po": "18911", "supplier": "RADIANT EXPORTS PVT. LTD.", "stype": "International", "cntr": "EGHU3522378+MEDU6626247+FTAU1229096", "status": "Received", "eta": "", "slabs": 0, "cost": 4052.84, "material": "BLACK ABSOLUTE FLAMED & BRUSHED 2CM GRANITE", "category": "Granite", "bg": "C8E6C9", "fg": "1B5E20"}, {"po": "15829", "supplier": "WOW", "stype": "Distributor", "cntr": "nan", "status": "Canceled", "eta": "", "slabs": 0, "cost": 261.18, "material": "GRADIENT WHITE GLOSSY CERAMIC 3X12", "category": "Ceramic", "bg": "FFCDD2", "fg": "B71C1C"}, {"po": "19678", "supplier": "ICON TILE", "stype": "nan", "cntr": "nan", "status": "Carrier Deliver to ME", "eta": "2025-09-24", "slabs": 0, "cost": 3.04, "material": "CORDOBA CREAM SPLIT FACE 2, 4, 6(3PC COMBO)XFREE", "category": "Natural Stone", "bg": "FFF9C4", "fg": "F57F17"}, {"po": "20989", "supplier": "ARGENTA CERAMICA, SL", "stype": "nan", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 7528.89, "material": "IKON SNOW MATTE WALL TILE 24X48", "category": "Ceramic", "bg": "F5F5F5", "fg": "757575"}, {"po": "20989", "supplier": "ARGENTA CERAMICA, SL", "stype": "nan", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 830.88, "material": "IKON AURAL SNOW FLUTED MATTE WALL TILE  24X48", "category": "Ceramic", "bg": "F5F5F5", "fg": "757575"}, {"po": "20134", "supplier": "MICAPEL SLATE", "stype": "nan", "cntr": "nan", "status": "CNTR Factory Loading", "eta": "", "slabs": 0, "cost": 10385.55, "material": "SLATE MONTAUK BLACK 18X36 12MM NATURAL CALIBRATED", "category": "Natural Stone", "bg": "F5F5F5", "fg": "757575"}, {"po": "21213", "supplier": "Bosphorus Natural Stone Import", "stype": "Factory", "cntr": "nan", "status": "Carrier Deliver to ME", "eta": "2026-05-15", "slabs": 0, "cost": 1466.5, "material": "FRAMMENTI ABI BASALT MATTE MOSAIC LOOK PORCELAIN 12X12", "category": "Mosaic", "bg": "FFF9C4", "fg": "F57F17"}, {"po": "21239", "supplier": "Stonex", "stype": "Distributor", "cntr": "nan", "status": "Carrier Deliver to ME", "eta": "2026-05-18", "slabs": 0, "cost": 4560.0, "material": "BLUE STONE VENEER MARBLE SPLITFACE LEDGER 8X18", "category": "Ledger", "bg": "FFF9C4", "fg": "F57F17"}, {"po": "21273", "supplier": "Pan American Ceramics by Merola Tile LLC", "stype": "Distributor", "cntr": "nan", "status": "Supplier Deliver to ME", "eta": "", "slabs": 0, "cost": 1161.15, "material": "SEDONA WHITE PORCELAIN TILE F/W 1-7/8 X 17-3/4", "category": "Porcelain Tile", "bg": "FFF9C4", "fg": "F57F17"}, {"po": "21284", "supplier": "Pan American Ceramics by Merola Tile LLC", "stype": "Distributor", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 820.26, "material": "ETIK WHITE PORCELAIN 24X48", "category": "Porcelain Tile", "bg": "F5F5F5", "fg": "757575"}, {"po": "21280", "supplier": "Emser Tile - Las Vegas", "stype": "Domestic", "cntr": "nan", "status": "PO Sent Awaiting Confirmation", "eta": "", "slabs": 0, "cost": 2100.21, "material": "LUCENTE BLANC GLOSSY 3X6", "category": "Glass", "bg": "F5F5F5", "fg": "757575"}];
+
+let activeFilter = 'all';
+let activeType   = 'all';
+let sortCol = 'po';
+let sortAsc = true;
+
+function statusClass(s){
+  if(s==='Received') return 'p-received';
+  if(s==='At Port / On Vessel') return 'p-port';
+  if(s==='On the Water') return 'p-water';
+  if(s==='At Yard') return 'p-yard';
+  return 'p-pending';
+}
+function statusLabel(s){ return s===''||s==='pending'?'Pending':s; }
+function flagClass(f){
+  if(!f||f==='') return 'f-missing';
+  if(f.startsWith('OVERDUE')) return 'f-overdue';
+  if(f==='DUE SOON') return 'f-soon';
+  if(f==='ON TRACK') return 'f-ontrack';
+  if(f==='RECEIVED') return 'f-received';
+  if(f==='SCHEDULE PICKUP') return 'f-pickup';
+  if(f==='AT PORT') return 'f-atport';
+  return 'f-missing';
+}
+function typeClass(t){
+  if(t==='International') return 't-intl';
+  if(t==='Domestic') return 't-dom';
+  return '';
+}
+function switchType(t, btn){
+  activeType = t;
+  document.querySelectorAll('.tab2').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderContainers();
+  renderMaterials();
+}
+
+function switchView(v, btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('view-containers').classList.toggle('view-hidden', v!=='containers');
+  document.getElementById('view-materials').classList.toggle('view-hidden', v!=='materials');
+  const ps = document.getElementById('view-postatus');
+  if(ps) ps.classList.toggle('view-hidden', v!=='postatus');
+  if(v==='postatus') renderPOStatus();
+}
+
+function setFilter(f, btn){
+  activeFilter = f;
+  document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderContainers();
+}
+
+function filterByStatus(s){
+  activeFilter = s;
+  document.querySelectorAll('.fbtn').forEach(b=>{
+    b.classList.toggle('active', b.textContent.trim()===s||
+      (s==='At Port / On Vessel'&&b.textContent.trim()==='At Port'));
+  });
+  renderContainers();
+}
+
+function sortBy(col){
+  if(sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
+  renderContainers();
+}
+
+function getFiltered(){
+  const q = (document.getElementById('search-containers').value||'').toLowerCase();
+  let rows = containers;
+  if(activeType!=='all') rows=rows.filter(r=>r.stype===activeType);
+  if(activeFilter==='pending') rows=rows.filter(r=>!r.status||r.status==='pending');
+  else if(activeFilter!=='all') rows=rows.filter(r=>r.status===activeFilter);
+  if(q) rows=rows.filter(r=>
+    r.supplier.toLowerCase().includes(q)||
+    r.cntr.toLowerCase().includes(q)||
+    r.po.includes(q)||
+    r.materials.toLowerCase().includes(q));
+  rows=[...rows].sort((a,b)=>{
+    let av=a[sortCol]||'', bv=b[sortCol]||'';
+    if(sortCol==='value'||sortCol==='slabs'){ av=Number(av)||0; bv=Number(bv)||0; }
+    return sortAsc?(av>bv?1:av<bv?-1:0):(av<bv?1:av>bv?-1:0);
+  });
+  return rows;
+}
+
+function renderContainers(){
+  const rows = getFiltered();
+  document.getElementById('row-count').textContent=`Showing ${rows.length} shipment${rows.length!==1?'s':''}`;
+  const tbody=document.getElementById('tbody-containers');
+  // Update filtered total and donut
+  const filteredVal = rows.reduce((a,r)=>a+(r.value||0),0);
+  const ftEl = document.getElementById('filtered-total');
+  if(ftEl) ftEl.textContent = '$'+filteredVal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('donut-total').textContent = rows.length;
+
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="11"><div class="no-results">No shipments match</div></td></tr>';return;}
+  tbody.innerHTML=rows.map((r,i)=>{
+    const hasMilestones = r.stype==='International' && r.cntr;
+    const rowId = 'ms-'+i;
+    const mainRow = `<tr style="${r.flag&&r.flag.startsWith('OVERDUE')?'background:#FFF5F5':''}">
+      <td><span class="pill ${flagClass(r.flag)}">${r.flag||'MISSING'}</span></td>
+      <td>${r.stype?`<span class="pill ${typeClass(r.stype)}">${r.stype}</span>`:'--'}</td>
+      <td style="color:#888;font-size:11px">${r.po}</td>
+      <td style="font-weight:500">${r.supplier}</td>
+      <td class="mono">${r.cntr||'--'}</td>
+      <td><span class="pill ${statusClass(r.status)}">${statusLabel(r.status)}</span></td>
+      <td style="color:#1B3A6B;font-size:11px;font-weight:600">${r.pod_eta||r.eta||'--'}</td>
+      <td style="color:#e24b4a;font-size:11px;font-weight:${r.lfd?600:400}">${r.lfd||'--'}</td>
+      <td style="color:#888;font-size:11px">${r.terminal||'--'}</td>
+      <td style="text-align:center;color:#555">${r.slabs||'--'}</td>
+      <td class="val">${r.value?'$'+r.value.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}
+        ${hasMilestones?`<button class="expand-btn" onclick="toggleMilestone('${rowId}')" style="margin-left:6px">Timeline</button>`:''}
+      </td>
+    </tr>`;
+    const milestoneRow = hasMilestones ? buildMilestoneRow(r, rowId) : '';
+    return mainRow + milestoneRow;
+  }).join('');
+}
+
+function renderMaterials(){
+  const q=(document.getElementById('search-materials').value||'').toLowerCase();
+  let rows=materials;
+  if(activeType!=='all') rows=rows.filter(r=>r.stype===activeType);
+  if(q) rows=rows.filter(r=>
+    r.name.toLowerCase().includes(q)||
+    (r.sku||'').toLowerCase().includes(q)||
+    r.supplier.toLowerCase().includes(q)||
+    r.po.includes(q)||
+    (r.category||'').toLowerCase().includes(q));
+  document.getElementById('mat-count').textContent=`${rows.length} line items`;
+  const tbody=document.getElementById('tbody-materials');
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="13"><div class="no-results">No materials match</div></td></tr>';return;}
+  tbody.innerHTML=rows.map((r,i)=>`
+    <tr style="background:${i%2===0?'#fafafa':'white'}">
+      <td style="color:#888;font-size:11px">${r.po}</td>
+      <td style="font-size:11px">${r.supplier}</td>
+      <td class="mono">${r.cntr||'--'}</td>
+      <td style="color:#1B3A6B;font-size:11px;font-weight:600">${r.eta||'--'}</td>
+      <td>${r.status?`<span class="pill ${statusClass(r.status)}">${statusLabel(r.status)}</span>`:'--'}</td>
+      <td style="font-weight:500;max-width:220px">${r.name}</td>
+      <td style="color:#888;font-size:11px">${r.sku||'--'}</td>
+      <td><span class="pill p-pending" style="font-size:10px">${r.category||'--'}</span></td>
+      <td style="text-align:center">${r.slabs||'--'}</td>
+      <td style="text-align:center;color:#555">${r.qty||'--'}</td>
+      <td style="color:#888">${r.units||'--'}</td>
+      <td style="color:#555">${r.price?'$'+r.price.toFixed(2):'--'}</td>
+      <td class="val">${r.total?'$'+r.total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</td>
+    </tr>`).join('');
+}
+
+// Milestone timeline
+function toggleMilestone(id){
+  const row = document.getElementById(id);
+  if(row) row.classList.toggle('open');
+}
+
+function buildMilestoneRow(r, id){
+  const steps = [
+    {label:'Departed', date:r.pol_departed, field:'pol_departed'},
+    {label:'ETA Port', date:r.pod_eta, field:'pod_eta'},
+    {label:'Arrived', date:r.pod_arrived, field:'pod_arrived'},
+    {label:'Discharged', date:r.pod_discharged, field:'pod_discharged'},
+    {label:'Available', date:r.available_date, field:'available_date'},
+    {label:'Appt', date:r.pickup_appt, field:'pickup_appt'},
+    {label:'Picked Up', date:r.picked_up, field:'picked_up'},
+  ];
+  // Determine which step is current
+  let lastDone = -1;
+  steps.forEach((s,i)=>{ if(s.date) lastDone=i; });
+  const vesselInfo = r.vessel ? `<span style="font-size:10px;color:#888;margin-left:12px">Vessel: ${r.vessel}</span>` : '';
+  const portInfo = r.origin_port && r.dest_port ? `<span style="font-size:10px;color:#888;margin-left:8px">${r.origin_port} -> ${r.dest_port}</span>` : '';
+  const dots = steps.map((s,i)=>{
+    const cls = i<=lastDone ? 'ms-done' : (i===lastDone+1 ? 'ms-active' : 'ms-pending');
+    const connector = i<steps.length-1 ? `<div class="ms-connector ${i<lastDone?'done':''}"></div>` : '';
+    return `<div class="ms"><div class="ms-dot ${cls}"></div><div class="ms-label">${s.label}</div><div class="ms-date">${s.date||'--'}</div></div>${connector}`;
+  }).join('');
+  return `<tr id="${id}" class="milestone-row"><td colspan="11"><div class="milestone-wrap">${dots}${vesselInfo}${portInfo}</div></td></tr>`;
+}
+
+// PO Status Tab
+let psTypeFilter = 'all';
+let psStatusFilter = 'all';
+let psSortCol = 'po';
+let psSortAsc = true;
+
+function switchPSType(t, btn){
+  psTypeFilter = t;
+  document.querySelectorAll('#view-postatus .tab2').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPOStatus();
+}
+
+function sortPS(col){
+  if(psSortCol===col) psSortAsc=!psSortAsc;
+  else { psSortCol=col; psSortAsc=true; }
+  renderPOStatus();
+}
+
+// Status group definitions
+const PS_GROUPS = [
+  {key:'problem',    label:'Problem',     statuses:['On Hold','CNTR on Hold','Items Back Ordered','Canceled'], bg:'#FFCDD2', fg:'#B71C1C'},
+  {key:'pending',    label:'Pending',     statuses:['PO Pending','PO Sent Awaiting Confirmation','Awaiting on Sales Rep','Fabricator POs','CNTR Pending Approval','CNTR Factory Loading'], bg:'#F5F5F5', fg:'#757575'},
+  {key:'transit',    label:'In Transit',  statuses:['CNTR On the Water'], bg:'#BBDEFB', fg:'#0D47A1'},
+  {key:'port',       label:'At Port',     statuses:['CNTR US Port / On Vessel','CNTR US Port / Exam'], bg:'#FFE0B2', fg:'#E65100'},
+  {key:'destination',label:'At Dest.',    statuses:['CNTR @ Jacobe','Material at Jacobe','CNTR - BUNDLE @ Yard/Transloading'], bg:'#EDE7F6', fg:'#4527A0'},
+  {key:'delivering', label:'Delivering',  statuses:['CNTR Delivering to ME','Supplier Deliver to ME','Carrier Deliver to ME','Rosstavi to deliver','Spur to deliver','PPG to deliver','Creative to deliver','Logistify to deliver','Freightrun to deliver'], bg:'#FFF9C4', fg:'#F57F17'},
+  {key:'final',      label:'Final',       statuses:['Customer Pick Up','Pending Receiving','Received'], bg:'#C8E6C9', fg:'#1B5E20'},
+];
+
+function getPSGroup(status){
+  for(const g of PS_GROUPS){
+    if(g.statuses.some(s=>s.toLowerCase()===status.toLowerCase())) return g;
+  }
+  return {key:'other',label:'Other',bg:'#F5F5F5',fg:'#555'};
+}
+
+function renderPOStatus(){
+  const q = (document.getElementById('search-postatus').value||'').toLowerCase();
+  let rows = poStatusData;
+  if(psTypeFilter!=='all') rows=rows.filter(r=>r.stype===psTypeFilter);
+  if(psStatusFilter!=='all') rows=rows.filter(r=>getPSGroup(r.status).key===psStatusFilter);
+  if(q) rows=rows.filter(r=>
+    r.supplier.toLowerCase().includes(q)||
+    r.po.includes(q)||
+    r.status.toLowerCase().includes(q)||
+    r.material.toLowerCase().includes(q)||
+    r.cntr.toLowerCase().includes(q)
+  );
+
+  // Sort
+  rows=[...rows].sort((a,b)=>{
+    let av=a[psSortCol]||'', bv=b[psSortCol]||'';
+    if(psSortCol==='cost'||psSortCol==='slabs'){av=parseFloat(av)||0;bv=parseFloat(bv)||0;}
+    return psSortAsc?(av>bv?1:av<bv?-1:0):(av<bv?1:av>bv?-1:0);
+  });
+
+  // Update count
+  document.getElementById('postatus-count').textContent = rows.length + ' line items';
+
+  // Build summary cards by group
+  const summary = document.getElementById('ps-summary');
+  const allRows = psTypeFilter==='all'?poStatusData:poStatusData.filter(r=>r.stype===psTypeFilter);
+  summary.innerHTML = PS_GROUPS.map(g=>{
+    const cnt = allRows.filter(r=>getPSGroup(r.status).key===g.key).length;
+    if(cnt===0) return '';
+    return `<div onclick="filterPSGroup('${g.key}')" style="background:${g.bg};color:${g.fg};padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;border:1px solid ${g.fg}22">
+      ${g.label}<br><span style="font-size:18px">${cnt}</span>
+    </div>`;
+  }).join('');
+
+  // Build status filter pills
+  const filtersEl = document.getElementById('ps-status-filters');
+  const uniqueStatuses = [...new Set(allRows.map(r=>r.status))].sort();
+  filtersEl.innerHTML = `<button onclick="filterPSGroup('all')" class="fbtn ${psStatusFilter==='all'?'active':''}" style="font-size:10px;padding:3px 10px">All</button>` +
+    uniqueStatuses.map(s=>{
+      const g = getPSGroup(s);
+      const cnt = allRows.filter(r=>r.status===s).length;
+      return `<button onclick="filterPSStatus('${s}')" style="background:${g.bg};color:${g.fg};border:0.5px solid ${g.fg}44;padding:3px 10px;border-radius:10px;font-size:10px;cursor:pointer;font-weight:500">${s} (${cnt})</button>`;
+    }).join('');
+
+  // Render table
+  const tbody = document.getElementById('tbody-postatus');
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="10"><div class="no-results">No POs match</div></td></tr>';return;}
+  tbody.innerHTML=rows.map(r=>{
+    const g = getPSGroup(r.status);
+    return `<tr>
+      <td style="color:#888;font-size:11px">${r.po}</td>
+      <td style="font-weight:500;font-size:11px">${r.supplier}</td>
+      <td><span class="pill ${r.stype==='International'?'t-intl':r.stype==='Domestic'?'t-dom':''}">${r.stype||'--'}</span></td>
+      <td class="mono" style="font-size:11px">${r.cntr||'--'}</td>
+      <td><span style="background:${g.bg};color:${g.fg};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap">${r.status}</span></td>
+      <td style="color:#1B3A6B;font-size:11px;font-weight:600">${r.eta||'--'}</td>
+      <td style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.material}">${r.material||'--'}</td>
+      <td style="font-size:11px"><span class="pill">${r.category||'--'}</span></td>
+      <td style="text-align:center;font-size:11px">${r.slabs||'--'}</td>
+      <td class="val" style="font-size:11px">${r.cost?'$'+r.cost.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterPSGroup(key){
+  psStatusFilter = key;
+  renderPOStatus();
+}
+
+function filterPSStatus(status){
+  psStatusFilter = status;
+  renderPOStatus();
+}
+
+// Metrics
+function updateMetrics(){
+  const groups=[
+    {key:'Received',id:'m-received',valId:'m-received-val'},
+    {key:'At Yard',id:'m-yard',valId:'m-yard-val'},
+    {key:'At Port / On Vessel',id:'m-port',valId:'m-port-val'},
+    {key:'On the Water',id:'m-water',valId:'m-water-val'},
+  ];
+  groups.forEach(g=>{
+    const sub=containers.filter(c=>c.status===g.key);
+    document.getElementById(g.id).textContent=sub.length;
+    const v=sub.reduce((a,c)=>a+c.value,0);
+    document.getElementById(g.valId).textContent=v?'$'+v.toLocaleString('en-US',{maximumFractionDigits:0}):'--';
+  });
+}
+
+// Donut
+const counts=[
+  containers.filter(c=>c.status==='Received').length,
+  containers.filter(c=>c.status==='At Yard').length,
+  containers.filter(c=>c.status==='At Port / On Vessel').length,
+  containers.filter(c=>c.status==='On the Water').length,
+  containers.filter(c=>!c.status||c.status==='pending').length,
+];
+const colors=['#1d9e75','#378add','#ef9f27','#e24b4a','#cccccc'];
+const labels=['Received','At Yard','At Port','On the Water','Pending'];
+const total=counts.reduce((a,b)=>a+b,0);
+// donut total updated dynamically in renderContainers
+
+new Chart(document.getElementById('donut'),{
+  type:'doughnut',
+  data:{labels,datasets:[{data:counts,backgroundColor:colors,borderWidth:2,borderColor:'#fff'}]},
+  options:{responsive:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.label+': '+c.raw}}}}
+});
+
+document.getElementById('legend').innerHTML=labels.map((l,i)=>`
+  <div class="legend-row" onclick="filterByStatus('${l}')" style="cursor:pointer;padding:4px 6px;border-radius:6px;transition:background 0.15s" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='transparent'">
+    <span class="ldot" style="background:${colors[i]}"></span>
+    <span>${l}</span>
+    <span class="lval">${counts[i]}</span>
+  </div>`).join('');
+
+function filterByStatus(status){
+  // Map legend label to filter value
+  const map = {
+    'Received'           : 'Received',
+    'At Yard'            : 'At Yard',
+    'At Port'            : 'At Port / On Vessel',
+    'On the Water'       : 'On the Water',
+    'Pending'            : 'pending',
+  };
+  const f = map[status] || status;
+  // Switch to Shipments tab first
+  switchView('containers', document.querySelector('.tab[onclick*=containers]') || document.querySelector('.tab'));
+  // Set filter
+  activeFilter = f;
+  // Update filter buttons
+  document.querySelectorAll('.fbtn').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === status || (status==='pending' && b.textContent.trim()==='Pending'));
+  });
+  renderContainers();
+}
+
+// ETAs
+const etaColors={'Received':'#1d9e75','At Port / On Vessel':'#ef9f27','On the Water':'#e24b4a','At Yard':'#378add'};
+const sorted=[...containers].filter(c=>c.eta&&c.status!=='Received'&&c.status!=='pending')
+  .sort((a,b)=>new Date(a.eta)-new Date(b.eta)).slice(0,7);
+document.getElementById('etas').innerHTML=sorted.length?sorted.map(r=>`
+  <div class="eta-row">
+    <span class="eta-name">${r.supplier}</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span class="eta-date">${r.eta}</span>
+      <span style="font-size:10px;padding:2px 6px;border-radius:8px;background:${(etaColors[r.status]||'#ccc')+'22'};color:${etaColors[r.status]||'#999'}">${r.cntr.substring(0,4)||'--'}</span>
+    </div>
+  </div>`).join(''):'<div style="color:#aaa;font-size:12px;padding:10px 0">No upcoming ETAs</div>';
+
+// Populate alert banner with overdue details
+(function(){
+  const overdue = containers.filter(c=>c.flag&&c.flag.startsWith('OVERDUE'));
+  if(overdue.length>0){
+    document.getElementById('alert-list').innerHTML = overdue.map(c=>
+      c.supplier + ' -- PO ' + c.po + ' -- ETA ' + (c.eta||'unknown') + ' (' + c.flag + ')'
+    ).join('<br>');
+  }
+})();
+
+updateMetrics();
+renderContainers();
+renderMaterials();
+</script>
+</body>
+</html>
