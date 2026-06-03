@@ -111,7 +111,7 @@ tr:hover td{background:#fafbff}
 </style>
 </head>
 <body>
-<div id="pw-gate"><div class="pw-box"><div class="pw-title">Material Tracker</div><div class="pw-div"></div><div class="pw-sub">Marble Express LV</div><input class="pw-input" type="password" id="pw-input" placeholder="Enter password" onkeydown="if(event.key==='Enter')checkPW()"><button class="pw-btn" onclick="checkPW()">Access Dashboard</button><div class="pw-err" id="pw-err"></div></div></div>
+<div id="pw-gate"><div class="pw-box"><div class="pw-title">Material Tracker</div><div class="pw-div"></div><div class="pw-sub">Marble Express LV</div><input class="pw-input" type="password" id="pw-input" placeholder="Enter password" onkeydown="if(event.key==='Enter')checkPW()"><button class="pw-btn" onclick="(function(){var pw=document.getElementById('pw-input').value;if(pw==='Materials2026!'){sessionStorage.setItem('me_mat_auth','1');document.getElementById('pw-gate').style.display='none';}else{document.getElementById('pw-err').textContent='Incorrect password.';document.getElementById('pw-input').value='';}})()">Access Dashboard</button><div class="pw-err" id="pw-err"></div></div></div>
 
 <div class="top-bar">
   <div>
@@ -698,3 +698,4 @@ renderMaterials();
 </script>
 <script>function checkPW(){var pw=document.getElementById("pw-input").value;if(pw==="Materials2026!"){sessionStorage.setItem("me_mat_auth","1");document.getElementById("pw-gate").style.display="none";}else{document.getElementById("pw-err").textContent="Incorrect password.";document.getElementById("pw-input").value="";}};if(sessionStorage.getItem("me_mat_auth")==="1"){var g=document.getElementById("pw-gate");if(g)g.style.display="none";}</script></body>
 </html>
+
