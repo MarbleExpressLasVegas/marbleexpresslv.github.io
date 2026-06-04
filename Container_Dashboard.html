@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -679,9 +679,9 @@ document.getElementById('etas').innerHTML=sorted.length?sorted.map(r=>`
   }
 })();
 
-if(sessionStorage.getItem('me_mat_auth')==='1'){var g=document.getElementById('pw-gate');if(g)g.style.display='none';var b=document.getElementById('pb');if(b)b.style.display='block';}
-if(sessionStorage.getItem('me_mat_auth')==='1'){var g=document.getElementById('pw-gate');if(g)g.style.display='none';var b=document.getElementById('pb');if(b)b.style.display='block';}
-if(sessionStorage.getItem('me_mat_auth')==='1'){var g=document.getElementById('pw-gate');if(g)g.style.display='none';var b=document.getElementById('pb');if(b)b.style.display='block';}
+if(localStorage.getItem('me_master_auth')==='1'||sessionStorage.getItem('me_mat_auth')==='1'){var g=document.getElementById('pw-gate');if(g)g.style.display='none';var b=document.getElementById('pb');if(b)b.style.display='block';}
+if(localStorage.getItem('me_master_auth')==='1'||sessionStorage.getItem('me_mat_auth')==='1'){var g=document.getElementById('pw-gate');if(g)g.style.display='none';var b=document.getElementById('pb');if(b)b.style.display='block';}
+if(localStorage.getItem('me_master_auth')==='1'||sessionStorage.getItem('me_mat_auth')==='1'){var g=document.getElementById('pw-gate');if(g)g.style.display='none';var b=document.getElementById('pb');if(b)b.style.display='block';}
 updateMetrics();
 renderContainers();
 renderMaterials();
