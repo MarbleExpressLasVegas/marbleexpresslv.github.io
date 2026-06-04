@@ -219,6 +219,7 @@ async function checkPortalPassword() {
   const hash = await sha256(pw);
   if (hash === PORTAL_HASH) {
     localStorage.setItem('me_portal_auth', '1');
+    localStorage.setItem('me_master_auth', '1');
     showPortal();
   } else {
     document.getElementById('portal-error').textContent = 'Incorrect password. Try again.';
@@ -233,6 +234,7 @@ function showPortal() {
 
 function logout() {
   localStorage.removeItem('me_portal_auth');
+  localStorage.removeItem('me_master_auth');
   location.reload();
 }
 
